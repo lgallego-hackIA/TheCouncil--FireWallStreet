@@ -1,0 +1,53 @@
+{
+  "id": "41a6d558-7f41-46b3-950d-d48e7a12843d",
+  "name": "orders",
+  "description": "Order management automation",
+  "version": "1.0.0",
+  "base_path": "/api/orders",
+  "created_at": "2025-06-07 01:51:54.891829",
+  "updated_at": "2025-06-07 01:51:54.891848",
+  "status": "active",
+  "endpoints": [
+    {
+      "path": "/",
+      "method": "GET",
+      "summary": "Get all orders",
+      "description": "Returns a list of all orders",
+      "parameters": [],
+      "response_model_name": null,
+      "handler_path": "src.domain.automations.orders.interface.handlers.get_all_items",
+      "requires_auth": true,
+      "active": true,
+      "wrap_response": false,
+      "single_item": false,
+      "id_field": "id"
+    },
+    {
+      "path": "/",
+      "method": "POST",
+      "summary": "Create a new order",
+      "description": "Creates a new order in the system",
+      "parameters": [],
+      "response_model_name": null,
+      "handler_path": "src.domain.automations.orders.interface.handlers.create_item",
+      "requires_auth": true,
+      "active": true,
+      "wrap_response": false,
+      "single_item": false,
+      "id_field": "id"
+    }
+  ],
+  "db_config": {
+    "type": "mongodb",
+    "config": {
+      "connection_string": "mongodb://localhost:27017",
+      "database": "orders_db"
+    },
+    "collection_name": "orders",
+    "table_name": null,
+    "index_name": null
+  },
+  "metadata": {
+    "owner": "system"
+  }
+}
