@@ -23,7 +23,17 @@ curl -X POST http://localhost:8000/console/automations \
   -d '{
     "name": "users",
     "description": "User management API",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "base_path": "/api/users",
+    "db_config": {
+      "type": "mongodb",
+      "config": {
+        "connection_string": "mongodb://localhost:27017",
+        "database": "users_db"
+      },
+      "collection_name": "users"
+    },
+    "generate_ddd_structure": true
   }'
 
 # Get automation details
@@ -33,7 +43,7 @@ curl http://localhost:8000/console/automations/users
 curl -X POST http://localhost:8000/console/automations/users/endpoints \
   -H "Content-Type: application/json" \
   -d '{
-    "path": "/users",
+    "path": "/",
     "method": "GET",
     "summary": "List all users",
     "description": "Retrieve a list of all users with optional filtering",
@@ -46,11 +56,57 @@ curl -X POST http://localhost:8000/console/automations/users/endpoints \
         "default": 10
       }
     ],
+    "handler_path": "src.domain.automations.users.interface.handlers.get_all_items",
     "active": true
   }'
 ```
 
-### 2. Creating Automation JSON Files Directly
+### 2. Using DDD File Generation (Recommended)
+
+When creating a new automation, you can enable the DDD file structure generation feature by setting the `generate_ddd_structure` flag to `true`. This generates a complete Domain-Driven Design folder structure and boilerplate code for your automation:
+
+```
+src/domain/automations/your_automation_name/
+├── README.md                 # Usage documentation
+├── __init__.py
+├── domain/                  # Core domain layer
+│   ├── __init__.py
+│   ├── models.py            # Domain models/entities
+│   └── service.py           # Domain logic
+├── application/             # Application layer
+│   ├── __init__.py
+│   └── service.py           # Orchestration services
+├── infrastructure/          # Infrastructure layer
+│   ├── __init__.py
+│   └── repository.py        # Data access
+└── interface/               # Interface layer
+    ├── __init__.py
+    └── handlers.py          # API endpoint handlers
+```
+
+The generated code includes:
+- Domain models with Pydantic schemas
+- Repository patterns for data access
+- Application services for orchestration
+- Interface handlers for API endpoints
+
+This structure encourages separation of concerns and allows you to focus on implementing your business logic in the appropriate layers.
+
+#### Using Custom Handlers
+
+After generating the DDD structure, you can connect your endpoints to custom handlers:
+
+```bash
+curl -X POST "http://localhost:8000/console/automations/your_automation_id/endpoints" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "/",
+    "method": "GET", 
+    "handler_path": "src.domain.automations.your_automation_name.interface.handlers.get_all_items"
+  }'
+```
+
+### 3. Creating Automation JSON Files Directly
 
 You can also create automation JSON files directly in the `data/automations/` directory:
 

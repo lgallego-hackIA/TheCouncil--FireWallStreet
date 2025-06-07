@@ -8,9 +8,10 @@ theCouncil is a flexible API system designed to be called by different GPT model
 
 1. **Dynamic Endpoint Group Creation**: Create new endpoint groups through a console interface by simply providing a name and basic configuration.
 2. **Domain-Driven Design Architecture**: Organized around business domains with clear boundaries and contexts.
-3. **GPT Integration**: Optimized for being called by various GPT models, with consistent response formats.
-4. **Flexible Database Support**: Multiple database options based on use case requirements.
-5. **Automation Framework**: Each group of endpoints represents an "automation" that can be managed independently.
+3. **Automated DDD File Generation**: Automatically scaffold DDD-structured code for new automations, including domain models, services, repositories, and handlers.
+4. **GPT Integration**: Optimized for being called by various GPT models, with consistent response formats.
+5. **Flexible Database Support**: Multiple database options based on use case requirements (MongoDB, PostgreSQL, DynamoDB, Redis, Elasticsearch).
+6. **Automation Framework**: Each group of endpoints represents an "automation" that can be managed independently.
 
 ## Technical Architecture (DDD Approach)
 
@@ -30,21 +31,27 @@ theCouncil/
 
 ### 2. Dynamic Endpoint System
 
-The system will implement a plugin-based architecture for endpoint groups:
+The system implements a plugin-based architecture for endpoint groups:
 
 ```
 src/
 ├── domain/
-│   └── automation/          # Core domain for automation management
+│   ├── automation/          # Core domain for automation management
+│   └── automations/         # Generated DDD structures for automations
+│       ├── orders/          # Example: Orders automation
+│       │   ├── domain/      # Orders domain layer (models, business logic)
+│       │   ├── application/ # Orders application layer (services, use cases)
+│       │   ├── infrastructure/ # Orders infrastructure layer (repositories)
+│       │   └── interface/   # Orders interface layer (API handlers)
+│       └── other_automations/ # Other generated automation structures
 ├── application/
 │   ├── automation_registry/ # Registry for automation endpoint groups
-│   └── automation_factory/  # Factory for creating new automations
+│   ├── automation_manager/  # Manager for automation lifecycle, including DDD generation
+│   └── endpoint_handler/    # Handler configuration for automation endpoints
 └── interfaces/
-    └── api/
-        ├── router_manager/  # Dynamic FastAPI router management
-        └── automations/     # Auto-generated endpoint groups
-            ├── accounts/    # Example: Accounts automation endpoints
-            └── other_groups/# Other dynamically created endpoint groups
+    ├── api/
+    │   └── router_manager/  # Dynamic FastAPI router management
+    └── console/            # Console API for managing automations
 ```
 
 ### 3. Console Management Interface
