@@ -5,8 +5,10 @@ import logging
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
+import pymongo.errors
 
 from src.infrastructure.database.base_repository import BaseRepository
+from src.shared.exceptions import DatabaseConnectionError, DatabaseError
 
 T = TypeVar('T')  # Type of domain entity
 
@@ -61,9 +63,15 @@ class MongoDBRepository(BaseRepository[T], Generic[T]):
             
             return entity
             
+        except pymongo.errors.ServerSelectionTimeoutError as e:
+            logger.error(f"MongoDB connection error while creating entity {self.entity_type.__name__}: {e}")
+            raise DatabaseConnectionError(f"Failed to connect to MongoDB server: {str(e)}")
+        except pymongo.errors.ConnectionFailure as e:
+            logger.error(f"MongoDB connection failure while creating entity {self.entity_type.__name__}: {e}")
+            raise DatabaseConnectionError(f"Connection to MongoDB failed: {str(e)}")
         except Exception as e:
             logger.error(f"Error creating entity {self.entity_type.__name__}: {e}")
-            raise
+            raise DatabaseError(str(e))
     
     async def get_by_id(self, entity_id: Any) -> Optional[T]:
         """
@@ -156,9 +164,15 @@ class MongoDBRepository(BaseRepository[T], Generic[T]):
             updated_doc = await self.collection.find_one({'_id': entity_id})
             return self._dict_to_entity(updated_doc)
             
+        except pymongo.errors.ServerSelectionTimeoutError as e:
+            logger.error(f"MongoDB connection error while updating entity {self.entity_type.__name__}: {e}")
+            raise DatabaseConnectionError(f"Failed to connect to MongoDB server: {str(e)}")
+        except pymongo.errors.ConnectionFailure as e:
+            logger.error(f"MongoDB connection failure while updating entity {self.entity_type.__name__}: {e}")
+            raise DatabaseConnectionError(f"Connection to MongoDB failed: {str(e)}")
         except Exception as e:
             logger.error(f"Error updating entity {self.entity_type.__name__}: {e}")
-            raise
+            raise DatabaseError(str(e))
     
     async def delete(self, entity_id: Any) -> bool:
         """
@@ -258,9 +272,15 @@ class MongoDBRepository(BaseRepository[T], Generic[T]):
             # Convert documents to entities
             return [self._dict_to_entity(doc) for doc in documents]
             
+        except pymongo.errors.ServerSelectionTimeoutError as e:
+            logger.error(f"MongoDB connection error while finding entities {self.entity_type.__name__}: {e}")
+            raise DatabaseConnectionError(f"Failed to connect to MongoDB server: {str(e)}")
+        except pymongo.errors.ConnectionFailure as e:
+            logger.error(f"MongoDB connection failure while finding entities {self.entity_type.__name__}: {e}")
+            raise DatabaseConnectionError(f"Connection to MongoDB failed: {str(e)}")
         except Exception as e:
             logger.error(f"Error finding entities {self.entity_type.__name__}: {e}")
-            raise
+            raise DatabaseError(str(e))
     
     def _entity_to_dict(self, entity: T) -> Dict[str, Any]:
         """Convert entity to dictionary representation for MongoDB."""

@@ -2,6 +2,7 @@
 Dynamic endpoint handler for processing automation requests.
 """
 import json
+import importlib
 import logging
 from typing import Any, Dict, List, Optional, Type, Union
 
@@ -11,7 +12,7 @@ from starlette.datastructures import FormData, UploadFile
 
 from src.domain.automation.models import Automation, Endpoint, HttpMethod, EndpointParameter, ParamType
 from src.infrastructure.database_factory import DatabaseFactory
-from src.shared.exceptions import DatabaseError, ValidationError as TheCouncilValidationError
+from src.shared.exceptions import DatabaseError, DatabaseConnectionError, ValidationError as TheCouncilValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +84,27 @@ class EndpointHandler:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
             )
             
+        except DatabaseConnectionError as e:
+            logger.error(f"Database connection error: {e}")
+            return Response(
+                content=json.dumps({
+                    "error": "Database connection failed", 
+                    "message": f"Could not connect to the database. Please check if the database is running and accessible.",
+                    "details": str(e),
+                    "type": "database_connection_error"
+                }),
+                media_type="application/json",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+            
         except DatabaseError as e:
             logger.error(f"Database error: {e}")
             return Response(
-                content=json.dumps({"error": str(e), "type": "database_error"}),
+                content=json.dumps({
+                    "error": "Database operation failed", 
+                    "message": str(e),
+                    "type": "database_error"
+                }),
                 media_type="application/json",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -224,6 +242,30 @@ class EndpointHandler:
             entity_type=entity_type,
             db_config=automation.db_config
         )
+        
+        # Check if a custom handler is specified
+        if endpoint.handler_path:
+            try:
+                logger.info(f"Using custom handler: {endpoint.handler_path}")
+                # Import the handler dynamically
+                module_path, handler_name = endpoint.handler_path.rsplit('.', 1)
+                module = importlib.import_module(module_path)
+                handler_func = getattr(module, handler_name)
+                
+                # Call the handler with repository and params
+                return await handler_func(
+                    params=params, 
+                    repository=repository,
+                    automation=automation,
+                    endpoint=endpoint,
+                    background_tasks=background_tasks
+                )
+            except (ImportError, AttributeError) as e:
+                logger.error(f"Error importing custom handler {endpoint.handler_path}: {e}")
+                logger.warning("Falling back to default handler")
+            except Exception as e:
+                logger.error(f"Error executing custom handler {endpoint.handler_path}: {e}")
+                raise
         
         # Execute the appropriate database operation based on the endpoint method
         if endpoint.method == HttpMethod.GET:

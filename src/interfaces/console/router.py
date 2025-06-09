@@ -186,7 +186,8 @@ async def create_automation(
 async def update_automation(
     request: UpdateAutomationRequest,
     automation_id: str = Path(..., title="The ID of the automation to update"),
-    registry: AutomationRegistry = Depends(get_registry)
+    registry: AutomationRegistry = Depends(get_registry),
+    manager: AutomationManager = Depends(get_automation_manager)
 ) -> AutomationResponse:
     """
     Update an existing automation.
@@ -203,6 +204,11 @@ async def update_automation(
         
         # Update the automation in registry
         result = await registry.update_automation(existing.name, updated_automation)
+        
+        # Check if status changed to active and re-register router if needed
+        if "status" in update_data and update_data["status"] == "active":
+            await manager.router_manager.register_router(updated_automation)
+            logger.info(f"Re-registered router for automation {updated_automation.name} after status change to active")
         
         return AutomationResponse(
             automation=result,
@@ -222,7 +228,8 @@ async def update_automation(
 @router.delete("/automations/{automation_id}", response_model=AutomationResponse)
 async def delete_automation(
     automation_id: str = Path(..., title="The ID of the automation to delete"),
-    registry: AutomationRegistry = Depends(get_registry)
+    registry: AutomationRegistry = Depends(get_registry),
+    manager: AutomationManager = Depends(get_automation_manager)
 ) -> AutomationResponse:
     """
     Delete an automation.
@@ -233,8 +240,12 @@ async def delete_automation(
         if not existing:
             raise AutomationNotFoundError(f"Automation with ID {automation_id} not found")
         
-        # Delete the automation
-        await registry.delete_automation(automation_id)
+        # Delete the automation using the manager to ensure proper cleanup
+        # This will remove both the router and the automation from the registry
+        success = await manager.delete_automation(existing.name)
+        
+        if not success:
+            raise AutomationError(f"Failed to delete automation {automation_id}")
         
         return AutomationResponse(
             automation=existing,
@@ -321,7 +332,8 @@ async def deactivate_automation(
 async def add_endpoint(
     automation_id: str,
     endpoint: Endpoint,
-    registry: AutomationRegistry = Depends(get_registry)
+    registry: AutomationRegistry = Depends(get_registry),
+    manager: AutomationManager = Depends(get_automation_manager)
 ) -> AutomationResponse:
     """
     Add a new endpoint to an automation.
@@ -337,6 +349,11 @@ async def add_endpoint(
         
         # Update the automation in registry
         result = await registry.update_automation(automation.name, automation)
+        
+        # Re-register the router to update the OpenAPI schema
+        if automation.status == "active":
+            await manager.router_manager.register_router(automation)
+            logger.info(f"Re-registered router for automation {automation.name} after adding endpoint")
         
         return AutomationResponse(
             automation=result,

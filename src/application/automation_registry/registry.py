@@ -167,6 +167,25 @@ class AutomationRegistry:
         
         logger.info(f"Deleted automation: {name}")
         return True
+        
+    async def delete_automation_by_id(self, automation_id: str) -> bool:
+        """
+        Delete an automation by its ID.
+        
+        Args:
+            automation_id: ID of the automation to delete
+            
+        Returns:
+            True if the automation was deleted, False if it wasn't found
+        """
+        # Find the automation with the given ID
+        for name, automation in self._automations.items():
+            if automation.id == automation_id:
+                # Use the existing delete_automation method
+                return self.delete_automation(name)
+        
+        logger.warning(f"Automation with ID {automation_id} not found for deletion")
+        return False
     
     async def _save_automation(self, automation: Automation) -> None:
         """

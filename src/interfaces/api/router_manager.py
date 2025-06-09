@@ -29,6 +29,8 @@ class RouterManager:
         """
         self.app = app
         self.automation_registry = automation_registry
+        # Track deleted automation paths to handle 404s gracefully
+        self.deleted_base_paths = set()
         self.routers: Dict[str, APIRouter] = {}
         
         # Create endpoint handler for processing requests
@@ -157,6 +159,13 @@ class RouterManager:
         if automation_name not in self.routers:
             logger.warning(f"Router for automation '{automation_name}' not found")
             return False
+
+        # Get the automation to retrieve its base_path before removal
+        automation = await self.automation_registry.get_automation(automation_name)
+        if automation:
+            # Store the base path of this deleted automation for 404 handling
+            self.deleted_base_paths.add(automation.base_path)
+            logger.info(f"Added {automation.base_path} to deleted paths tracking")
             
         # FastAPI doesn't have a built-in way to remove routers
         # We'll need to recreate the app routes without this router
@@ -172,3 +181,18 @@ class RouterManager:
         await self.register_all_routers()
         
         return True
+        
+    def is_deleted_automation_path(self, path: str) -> bool:
+        """
+        Check if a request path belongs to a deleted automation.
+        
+        Args:
+            path: The request path to check
+            
+        Returns:
+            True if the path matches a deleted automation's base path
+        """
+        for deleted_path in self.deleted_base_paths:
+            if path.startswith(deleted_path):
+                return True
+        return False

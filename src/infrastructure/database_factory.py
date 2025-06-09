@@ -3,6 +3,7 @@ Factory for creating database repositories based on automation configuration.
 """
 import logging
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
+import asyncio
 
 from src.domain.automation.models import DatabaseConfig, DatabaseType
 from src.infrastructure.database.base_repository import BaseRepository
@@ -135,14 +136,28 @@ class DatabaseFactory:
         if client_key not in self._db_clients:
             # In a real implementation, this would create a Motor client
             from motor.motor_asyncio import AsyncIOMotorClient
+            import pymongo.errors
             
             connection_string = config.get('connection_string', 'mongodb://localhost:27017')
             database = config.get('database', 'default')
             
-            client = AsyncIOMotorClient(connection_string)
-            db = client[database]
-            
-            self._db_clients[client_key] = db
+            try:
+                # Create client with serverSelectionTimeoutMS to fail fast if server is unreachable
+                client = AsyncIOMotorClient(connection_string, serverSelectionTimeoutMS=5000)
+                
+                # Trigger connection check with a lightweight command
+                client.admin.command('ismaster')
+                
+                db = client[database]
+                self._db_clients[client_key] = db
+            except (pymongo.errors.ServerSelectionTimeoutError, 
+                    pymongo.errors.ConnectionFailure,
+                    pymongo.errors.NetworkTimeout) as e:
+                logger.error(f"MongoDB connection error: {str(e)}")
+                raise DatabaseConnectionError(
+                    f"Failed to connect to MongoDB at {connection_string}. " 
+                    f"Please ensure the MongoDB server is running and accessible: {str(e)}"
+                )
             
         return self._db_clients[client_key]
     
