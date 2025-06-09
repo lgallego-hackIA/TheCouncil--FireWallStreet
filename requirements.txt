@@ -1,39 +1,41 @@
 # Core dependencies
-fastapi>=0.103.1
-uvicorn[standard]>=0.23.2
-pydantic>=2.4.2
-pydantic-settings>=2.0.3  # Settings management
-python-dotenv>=1.0.0
-typing-extensions>=4.8.0
-python-multipart>=0.0.6
-pyjwt>=2.8.0  # Updated from jwt to pyjwt which is more maintained
-passlib[bcrypt]>=1.7.4  # Added bcrypt for password hashing
-psycopg2-binary>=2.9.9
-sqlalchemy[asyncio]>=2.0.21  # Added asyncio extra for async support
-alembic>=1.12.0
+fastapi==0.103.1
+uvicorn==0.23.2
+pydantic==2.4.2
+pydantic-settings==2.0.3  # Settings management
+python-dotenv==1.0.0
+typing-extensions==4.8.0
+python-multipart==0.0.6
+pyjwt==2.8.0  # Updated from jwt to pyjwt which is more maintained
+passlib[bcrypt]==1.7.4  # Added bcrypt for password hashing
+psycopg2-binary==2.9.9
+sqlalchemy[asyncio]==2.0.21  # Added asyncio extra for async support
+alembic==1.12.0
 
 # Database drivers and clients
-pymongo>=4.6.0  # MongoDB driver with BSON support
-motor>=3.3.1  # Correct package name for MongoDB async driver
-redis[hiredis]>=5.0.1  # Added hiredis for performance with async support
-elasticsearch[async]>=8.10.0  # Elasticsearch with async client support
-aioboto3>=12.0.0  # Higher level wrapper around aiobotocore
-aiobotocore>=2.7.0  # For low-level DynamoDB operations
+pymongo==4.6.0  # MongoDB driver with BSON support
+motor==3.3.1  # Correct package name for MongoDB async driver
+redis[hiredis]==5.0.1  # Added hiredis for performance with async support
+elasticsearch[async]==8.10.0  # Elasticsearch with async client support
+aioboto3==12.0.0  # Higher level wrapper around aiobotocore
+aiobotocore==2.7.0  # For low-level DynamoDB operations
+asyncpg==0.30.0  # PostgreSQL async driver
 
 # Testing and development
-pytest>=7.4.2
-pytest-asyncio>=0.21.1
-httpx>=0.25.0
-coverage>=7.3.2
-black>=23.9.1
-flake8>=6.1.0
-isort>=5.12.0
-mypy>=1.5.1
+pytest==7.4.2
+pytest-asyncio==0.21.1
+httpx==0.25.0
+coverage==7.3.2
+black==23.9.1
+flake8==6.1.0
+isort==5.12.0
+mypy==1.5.1
 
 # Extra utilities
-toolz>=0.12.0  # Functional programming helpers
-loguru>=0.7.2  # Better logging
-tenacity>=8.2.3  # Retry logic
-jsonschema>=4.19.0  # JSON schema validation
-aiofiles>=23.2.1  # Async file operations
-email-validator>=2.0.0  # For email validation in Pydantic
+toolz==0.12.0  # Functional programming helpers
+loguru==0.7.2  # Better logging
+tenacity==8.2.3  # Retry logic
+jsonschema==4.19.0  # JSON schema validation
+aiofiles==23.2.1  # Async file operations
+email-validator==2.0.0  # For email validation in Pydantic
+psutil==7.0.0  # For system metrics in health checks

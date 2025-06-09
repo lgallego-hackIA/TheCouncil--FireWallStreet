@@ -1,0 +1,133 @@
+{
+  "id": "33c24403-96f5-4b8a-b96f-f1e47ad3d4c0",
+  "name": "products",
+  "description": "Product management system with full CRUD operations",
+  "version": "1.0.0",
+  "base_path": "/api/products",
+  "created_at": "2025-06-09 00:00:04.477211",
+  "updated_at": "2025-06-09 00:00:04.477226",
+  "status": "active",
+  "endpoints": [
+    {
+      "path": "/",
+      "method": "GET",
+      "summary": "List all products",
+      "description": "Returns a list of all products with optional filtering",
+      "parameters": [
+        {
+          "name": "category",
+          "type": "string",
+          "description": "Filter by product category",
+          "required": false,
+          "default": null
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "description": "Maximum number of products to return",
+          "required": false,
+          "default": 50
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "description": "Number of products to skip for pagination",
+          "required": false,
+          "default": 0
+        }
+      ],
+      "response_model_name": null,
+      "handler_path": "src.domain.automations.products.interface.handlers.get_all_items",
+      "requires_auth": true,
+      "active": true,
+      "wrap_response": true,
+      "single_item": false,
+      "id_field": "id"
+    },
+    {
+      "path": "/",
+      "method": "POST",
+      "summary": "Create a new product",
+      "description": "Add a new product to the database",
+      "parameters": [
+        {
+          "name": "name",
+          "type": "string",
+          "description": "Name of the product",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "description": "Description of the product",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "price",
+          "type": "float",
+          "description": "Price of the product",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "description": "Category of the product",
+          "required": false,
+          "default": null
+        },
+        {
+          "name": "stock",
+          "type": "integer",
+          "description": "Current stock level",
+          "required": false,
+          "default": 0
+        }
+      ],
+      "response_model_name": null,
+      "handler_path": "src.domain.automations.products.interface.handlers.create_item",
+      "requires_auth": true,
+      "active": true,
+      "wrap_response": true,
+      "single_item": false,
+      "id_field": "id"
+    },
+    {
+      "path": "/{product_id}",
+      "method": "GET",
+      "summary": "Get product by ID",
+      "description": "Returns details of a specific product",
+      "parameters": [
+        {
+          "name": "product_id",
+          "type": "string",
+          "description": "ID of the product to retrieve",
+          "required": true,
+          "default": null
+        }
+      ],
+      "response_model_name": null,
+      "handler_path": "src.domain.automations.products.interface.handlers.get_item_by_id",
+      "requires_auth": true,
+      "active": true,
+      "wrap_response": false,
+      "single_item": true,
+      "id_field": "product_id"
+    }
+  ],
+  "db_config": {
+    "type": "mongodb",
+    "config": {
+      "connection_string": "mongodb://localhost:27017",
+      "database": "products_db"
+    },
+    "collection_name": "products",
+    "table_name": null,
+    "index_name": null
+  },
+  "metadata": {
+    "owner": "system"
+  }
+}

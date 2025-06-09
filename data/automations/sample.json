@@ -9,7 +9,7 @@
   "status": "active",
   "endpoints": [
     {
-      "path": "/tasks",
+      "path": "/",
       "method": "GET",
       "summary": "List all tasks",
       "description": "Retrieve a list of all tasks with optional filtering",
@@ -41,7 +41,7 @@
       "single_item": false
     },
     {
-      "path": "/tasks/{task_id}",
+      "path": "/{task_id}",
       "method": "GET",
       "summary": "Get a task by ID",
       "description": "Retrieve a single task by its ID",
@@ -60,7 +60,7 @@
       "id_field": "task_id"
     },
     {
-      "path": "/tasks",
+      "path": "/",
       "method": "POST",
       "summary": "Create a new task",
       "description": "Create a new task with the provided details",
@@ -103,7 +103,7 @@
       "wrap_response": true
     },
     {
-      "path": "/tasks/{task_id}",
+      "path": "/{task_id}",
       "method": "PUT",
       "summary": "Update a task",
       "description": "Update an existing task with the provided details",
@@ -151,7 +151,7 @@
       "id_field": "task_id"
     },
     {
-      "path": "/tasks/{task_id}",
+      "path": "/{task_id}",
       "method": "DELETE",
       "summary": "Delete a task",
       "description": "Delete a task by its ID",

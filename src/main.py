@@ -61,6 +61,10 @@ async def startup_event():
     
     # Initialize the automation manager which will load automations and register routes
     await automation_manager.initialize()
+    
+    # Store router_manager in app.state for middleware to access
+    app.state.router_manager = router_manager
+    logger.info("Router manager stored in app state for middleware access")
 
 
 @app.on_event("shutdown")
@@ -69,6 +73,22 @@ async def shutdown_event():
     logger.info("Shutting down theCouncil API")
     # Perform any cleanup tasks here
 
+
+@app.middleware("http")
+async def handle_deleted_automations(request: Request, call_next):
+    """Middleware to handle requests to deleted automation endpoints."""
+    # Only check API requests, not console or other routes
+    if request.url.path.startswith("/api/"):
+        # This is a safe way to access router_manager via app.state
+        # which is set during startup
+        if hasattr(app.state, "router_manager") and \
+           app.state.router_manager.is_deleted_automation_path(request.url.path):
+            logger.info(f"Caught request to deleted automation path: {request.url.path}")
+            return JSONResponse(
+                status_code=404,
+                content={"detail": "This automation endpoint has been deleted."},
+            )
+    return await call_next(request)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
