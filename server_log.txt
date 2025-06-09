@@ -1,0 +1,2 @@
+INFO:     Will watch for changes in these directories: ['/Users/pedroalejandroavila/Documents/geopark/theCouncil-fresh']
+ERROR:    [Errno 48] Address already in use
