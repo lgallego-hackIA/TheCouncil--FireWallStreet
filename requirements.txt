@@ -39,4 +39,7 @@ jsonschema==4.19.0  # JSON schema validation
 aiofiles==23.2.1  # Async file operations
 email-validator==2.0.0  # For email validation in Pydantic
 psutil==7.0.0  # For system metrics in health checks
-vercel-blob==0.4.2  # Vercel Blob Storage for serverless file storage
+# Specify urllib3 version that works with botocore
+urllib3<1.27,>=1.25.4
+# Use an older version of vercel-blob that's compatible with this urllib3 version
+vercel-blob==0.3.0  # Vercel Blob Storage for serverless file storage
