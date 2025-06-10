@@ -11,6 +11,7 @@ passlib[bcrypt]==1.7.4  # Added bcrypt for password hashing
 psycopg2-binary==2.9.9
 sqlalchemy[asyncio]==2.0.21  # Added asyncio extra for async support
 alembic==1.12.0
+yfinance==0.2.33  # For stock market data retrieval
 
 # Database drivers and clients
 pymongo==4.6.0  # MongoDB driver with BSON support
