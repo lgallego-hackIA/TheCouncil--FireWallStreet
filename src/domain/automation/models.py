@@ -23,7 +23,6 @@ class DatabaseType(str, Enum):
     MONGODB = "mongodb"
     REDIS = "redis"
     ELASTICSEARCH = "elasticsearch"
-    DYNAMODB = "dynamodb"
 
 
 class AutomationStatus(str, Enum):

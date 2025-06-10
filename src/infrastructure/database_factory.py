@@ -14,7 +14,6 @@ from src.infrastructure.database.postgresql.repository import PostgreSQLReposito
 from src.infrastructure.database.mongodb.repository import MongoDBRepository
 from src.infrastructure.database.redis.repository import RedisRepository
 from src.infrastructure.database.elasticsearch.repository import ElasticsearchRepository
-from src.infrastructure.database.dynamodb.repository import DynamoDBRepository
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +64,6 @@ class DatabaseFactory:
             elif db_type == DatabaseType.ELASTICSEARCH:
                 client = self._get_or_create_elasticsearch_client(db_config.config)
                 return ElasticsearchRepository(client, entity_type)
-            
-            elif db_type == DatabaseType.DYNAMODB:
-                client = self._get_or_create_dynamodb_client(db_config.config)
-                return DynamoDBRepository(client, entity_type)
             
             else:
                 raise ConfigurationError(f"Unsupported database type: {db_type}")
@@ -224,35 +219,7 @@ class DatabaseFactory:
             
         return self._db_clients[client_key]
     
-    def _get_or_create_dynamodb_client(self, config: Dict[str, Any]) -> Any:
-        """
-        Get or create a DynamoDB client.
-        
-        Args:
-            config: DynamoDB configuration
-            
-        Returns:
-            DynamoDB client
-        """
-        client_key = f"dynamodb:{config.get('region', 'us-east-1')}"
-        
-        if client_key not in self._db_clients:
-            # In a real implementation, this would create a DynamoDB client
-            import aioboto3
-            
-            region = config.get('region', 'us-east-1')
-            endpoint_url = config.get('endpoint_url')
-            
-            session = aioboto3.Session()
-            resource = session.resource(
-                'dynamodb',
-                region_name=region,
-                endpoint_url=endpoint_url
-            )
-            
-            self._db_clients[client_key] = resource
-            
-        return self._db_clients[client_key]
+    # DynamoDB client method removed
         
     async def close_connections(self):
         """Close all database connections."""
@@ -275,10 +242,6 @@ class DatabaseFactory:
                 elif db_type == 'elasticsearch':
                     # Elasticsearch client
                     await client.close()
-                    
-                elif db_type == 'dynamodb':
-                    # DynamoDB client
-                    await client.__aexit__(None, None, None)
                     
                 logger.debug(f"Closed database connection: {client_key}")
                 
