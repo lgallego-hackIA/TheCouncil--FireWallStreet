@@ -13,6 +13,7 @@ from src.interfaces.console.router import router as console_router
 from src.shared.exceptions import TheCouncilError
 from src.shared.config import get_settings
 from src.shared.logging import setup_logging
+from .api.data_endpoints import router as data_router
 
 # Set up logging
 setup_logging()
@@ -52,6 +53,9 @@ router_manager = automation_manager.router_manager
 
 # Include the console router for automation management
 app.include_router(console_router, prefix="/console", tags=["Console"])
+
+# Incluir los routers
+app.include_router(data_router, prefix="/api", tags=["data"])
 
 
 @app.on_event("startup")
@@ -124,6 +128,19 @@ async def get_root():
 
 
 # Console router is already included above
+
+@app.get("/")
+async def root():
+    return {
+        "message": "GeoPark Data API",
+        "version": "1.0.0",
+        "endpoints": {
+            "geopark": "/api/geopark",
+            "market": "/api/market",
+            "brent": "/api/brent",
+            "daily_report": "/api/daily-report/{date}"
+        }
+    }
 
 if __name__ == "__main__":
     import uvicorn
