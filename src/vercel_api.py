@@ -121,3 +121,26 @@ async def get_root():
         "description": "Dynamic API system for GPT integration",
         "docs_url": "/docs"
     }
+
+@app.get("/health")
+async def health_check():
+    """Central health check endpoint for the entire API.
+    
+    Returns status information about the API and its components.
+    """
+    # Get all registered automations from the registry
+    automations = []
+    if automation_registry and hasattr(automation_registry, 'get_all_automations'):
+        try:
+            automations = automation_registry.get_all_automations()
+        except Exception as e:
+            logger.error(f"Error getting automations: {e}")
+    
+    return {
+        "status": "healthy",
+        "timestamp": str(settings.current_time),
+        "version": "0.1.0",
+        "environment": "serverless" if settings.is_serverless else "local",
+        "registered_automations": len(automations) if automations else 0,
+        "automations": [a.id for a in automations] if automations else []
+    }

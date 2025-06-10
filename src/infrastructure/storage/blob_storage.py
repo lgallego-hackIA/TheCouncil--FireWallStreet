@@ -9,15 +9,30 @@ from typing import Dict, Any, List, Optional
 import base64
 from datetime import timedelta
 
+# Set up logger
+logger = logging.getLogger(__name__)
+
 # Check if in Vercel environment
 IN_VERCEL = os.environ.get('VERCEL') == '1'
 
+# Check if Blob Storage token is available
+HAS_BLOB_TOKEN = os.environ.get('BLOB_READ_WRITE_TOKEN') is not None
+
+# Define if Blob Storage is available (either real or mock)
+BLOB_STORAGE_AVAILABLE = IN_VERCEL and HAS_BLOB_TOKEN or not IN_VERCEL
+
 # Import appropriate Blob implementation based on environment
-if IN_VERCEL:
-    # Use actual Vercel Blob when in Vercel environment
-    from vercel_blob import put, get, list_blobs, del_blob, PutBlobResult
-    from vercel_blob.types import BlobNotFoundError, ListingResponse
-    IS_MOCK = False
+if IN_VERCEL and HAS_BLOB_TOKEN:
+    # Use actual Vercel Blob when in Vercel environment and token is available
+    try:
+        from vercel_blob import put, get, list_blobs, del_blob, PutBlobResult
+        from vercel_blob.types import BlobNotFoundError, ListingResponse
+        IS_MOCK = False
+    except ImportError:
+        logger.warning("Failed to import vercel_blob, falling back to local implementation")
+        from src.infrastructure.storage.local_blob import put, get, list_blobs, del_blob, PutBlobResult
+        from src.infrastructure.storage.local_blob import BlobNotFoundError, ListingResponse
+        IS_MOCK = True
 else:
     # Use local mock implementation when in development
     from src.infrastructure.storage.local_blob import put, get, list_blobs, del_blob, PutBlobResult
@@ -31,17 +46,46 @@ BLOB_READ_WRITE_TOKEN = os.getenv("BLOB_READ_WRITE_TOKEN")
 BLOB_PREFIX = "automations"
 
 class BlobStorageAdapter:
-    """Adapter for Vercel Blob Storage."""
+    """Adapter for Vercel Blob Storage API for JSON data."""
 
     @staticmethod
     def is_available() -> bool:
-        """
-        Check if Vercel Blob Storage is available and configured.
+        """Check if the blob storage adapter is available.
         
         Returns:
-            bool: True if Vercel Blob is available, False otherwise
+            bool: True if the adapter is available, False otherwise
         """
-        return BLOB_READ_WRITE_TOKEN is not None and os.getenv("VERCEL") == "1"
+        # The Vercel Blob Storage adapter is available if we have a token
+        return os.environ.get("BLOB_READ_WRITE_TOKEN") is not None or not IN_VERCEL
+        
+    @staticmethod
+    async def list_blobs(prefix: str = "") -> List[str]:
+        """List all blobs with the given prefix.
+        
+        Args:
+            prefix: Prefix to filter blobs by
+            
+        Returns:
+            List[str]: List of blob paths
+        """
+        try:
+            # Default prefix is automations/
+            if not prefix.startswith("automations/") and not prefix.startswith("openapi/"):
+                full_prefix = f"automations/{prefix}"
+            else:
+                full_prefix = prefix
+                
+            # List blobs with the prefix
+            result = await list_blobs({"prefix": full_prefix})
+            
+            # Extract paths
+            paths = [blob.pathname for blob in result.blobs]
+            
+            logger.info(f"Listed {len(paths)} blobs with prefix '{full_prefix}'")
+            return paths
+        except Exception as e:
+            logger.error(f"Error listing blobs with prefix '{prefix}': {e}")
+            return []
 
     @staticmethod
     async def save_json(key: str, data: Dict[str, Any]) -> str:

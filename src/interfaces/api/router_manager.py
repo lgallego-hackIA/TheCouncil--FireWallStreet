@@ -84,8 +84,24 @@ class RouterManager:
                 logger.debug(f"Skipping inactive endpoint: {endpoint.method} {automation.name}{endpoint.path}")
                 continue
                 
-            # Determine the appropriate handler for the endpoint
-            handler = await self._get_endpoint_handler(endpoint, automation)
+            # Special handling for health check endpoints
+            is_health_endpoint = endpoint.path == "/health" and endpoint.method.value == "GET"
+            
+            if is_health_endpoint:
+                # Create a dedicated health check handler
+                async def health_check_handler(request: Request):
+                    """Health check endpoint handler"""
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(content={
+                        "service": automation.name,
+                        "status": "healthy",
+                        "message": f"{automation.name} automation is operating normally"
+                    })
+                
+                handler = health_check_handler
+            else:
+                # Determine the appropriate handler for regular endpoints
+                handler = await self._get_endpoint_handler(endpoint, automation)
             
             # Register the endpoint with the router
             router.add_api_route(
