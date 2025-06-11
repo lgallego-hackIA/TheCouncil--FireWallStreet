@@ -51,13 +51,26 @@ class BlobStorageAdapter:
     @staticmethod
     def is_available() -> bool:
         """Check if the blob storage adapter is available.
+
+        Checks for FORCE_LOCAL_AUTOMATIONS env var first. If true, returns False.
+        Otherwise, availability depends on BLOB_READ_WRITE_TOKEN.
         
         Returns:
             bool: True if the adapter is available, False otherwise
         """
-        # The Vercel Blob Storage adapter is considered available only if we have a token.
+        force_local = os.environ.get("FORCE_LOCAL_AUTOMATIONS", "false").lower()
+        if force_local in ["true", "1"]:
+            logger.info("FORCE_LOCAL_AUTOMATIONS is set. BlobStorageAdapter will report as unavailable.")
+            return False
+        
+        # Original check: The Vercel Blob Storage adapter is considered available only if we have a token.
         # This ensures AutomationRegistry falls back to its direct file loading if token is not set or is empty.
-        return bool(os.environ.get("BLOB_READ_WRITE_TOKEN"))
+        token_present = bool(os.environ.get("BLOB_READ_WRITE_TOKEN"))
+        if not token_present:
+            logger.info("BLOB_READ_WRITE_TOKEN not found. BlobStorageAdapter reports as unavailable.")
+        else:
+            logger.info("BLOB_READ_WRITE_TOKEN found. BlobStorageAdapter reports as available (unless FORCE_LOCAL_AUTOMATIONS overrides).")
+        return token_present
         
     @staticmethod
     async def list_blobs(prefix: str = "") -> List[str]:
