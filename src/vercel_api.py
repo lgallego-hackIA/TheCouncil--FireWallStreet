@@ -39,13 +39,13 @@ app = FastAPI(
     version="0.1.0",
     debug=settings.DEBUG
 )
-logger.error("--- VERCEL_API: FastAPI app object CREATED (using on-first-request init strategy) ---")
+logger.info("--- VERCEL_API: FastAPI app object CREATED (using on-first-request init strategy) ---")
 
 async def initialize_app_components():
     """Handles the actual application component initialization."""
     global automation_manager, app, automation_registry, logger, settings, is_initialized
     
-    logger.error("--- VERCEL_API: initialize_app_components STARTED ---")
+    logger.info("--- VERCEL_API: initialize_app_components STARTED ---")
     
     try:
         project_root = '/var/task' if os.environ.get('VERCEL') == '1' else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,16 +57,23 @@ async def initialize_app_components():
             indent = ' ' * 4 * (level)
             logger.info(f'{indent}{os.path.basename(r_path)}/')
             sub_indent = ' ' * 4 * (level + 1)
-            for f_item_name in f_list_items:
-                logger.info(f'{sub_indent}{f_item_name}')
+            #for f_item_name in f_list_items:
+             #   logger.info(f'{sub_indent}{f_item_name}')
         logger.info("--- End Directory Listing ---")
     except Exception as e_dir:
         logger.error(f"Failed to list project directories: {e_dir}")
 
     automation_manager = AutomationManager(app, automation_registry)
     
-    logger.error("--- VERCEL_API: ATTEMPTING AutomationManager.initialize() (from initialize_app_components) ---")
-    await automation_manager.initialize()
+    logger.info("--- VERCEL_API: PREPARING to call AutomationManager.initialize() (from initialize_app_components) ---")
+    try:
+        await automation_manager.initialize()
+        logger.info("--- VERCEL_API: SUCCESSFULLY CALLED AutomationManager.initialize() (from initialize_app_components) ---")
+    except Exception as e_init:
+        logger.error(f"--- VERCEL_API: FAILED during AutomationManager.initialize(): {e_init} ---", exc_info=True)
+        # Optionally re-raise or handle as critical failure
+        # raise # Uncomment if this should halt further initialization attempts or signal critical failure
+
     
     if hasattr(automation_manager, 'router_manager'):
         app.state.router_manager = automation_manager.router_manager
@@ -75,7 +82,7 @@ async def initialize_app_components():
         logger.error("AutomationManager no router_manager attr after init (from initialize_app_components).")
     
     is_initialized = True # Set flag after successful initialization
-    logger.error("--- VERCEL_API: initialize_app_components COMPLETED & is_initialized SET ---")
+    logger.info("--- VERCEL_API: initialize_app_components COMPLETED & is_initialized SET ---")
 
 @app.middleware("http")
 async def ensure_initialized_middleware(request: Request, call_next):
@@ -84,10 +91,10 @@ async def ensure_initialized_middleware(request: Request, call_next):
     if not is_initialized:
         async with initialization_lock:
             if not is_initialized: 
-                logger.error("--- VERCEL_API: ensure_initialized_middleware - NOT INITIALIZED, STARTING INIT ---")
+                logger.info("--- VERCEL_API: ensure_initialized_middleware - NOT INITIALIZED, STARTING INIT ---")
                 await initialize_app_components()
                 # is_initialized is set within initialize_app_components upon success
-                logger.error("--- VERCEL_API: ensure_initialized_middleware - INITIALIZATION CALL COMPLETE ---")
+                logger.info("--- VERCEL_API: ensure_initialized_middleware - INITIALIZATION CALL COMPLETE ---")
             else:
                 logger.info("--- VERCEL_API: ensure_initialized_middleware - ALREADY INITIALIZED (after lock) ---")
     
