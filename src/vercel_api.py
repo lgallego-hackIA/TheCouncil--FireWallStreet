@@ -63,7 +63,14 @@ async def initialize_app_components():
     except Exception as e_dir:
         logger.error(f"Failed to list project directories: {e_dir}")
 
-    automation_manager = AutomationManager(app, automation_registry)
+    logger.info("--- VERCEL_API: PREPARING to instantiate AutomationManager ---")
+    try:
+        automation_manager = AutomationManager(app, automation_registry)
+        logger.info("--- VERCEL_API: SUCCESSFULLY instantiated AutomationManager ---")
+    except Exception as e_am_init:
+        logger.error(f"--- VERCEL_API: FAILED to instantiate AutomationManager: {e_am_init} ---", exc_info=True)
+        is_initialized = False # Ensure we don't proceed as if initialized
+        return # Stop further initialization if AutomationManager fails
     
     logger.info("--- VERCEL_API: PREPARING to call AutomationManager.initialize() (from initialize_app_components) ---")
     try:
