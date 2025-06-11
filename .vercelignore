@@ -33,6 +33,7 @@ tests/
 *.swp
 *~
 .DS_Store
+*.bak
 
 # Logs
 logs/
