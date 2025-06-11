@@ -1,0 +1,84 @@
+{
+  "id": "492fcd78-9980-4716-9545-5b3a88653716",
+  "name": "financial-data-collector",
+  "display_name": "Financial-Data-Collector",
+  "description": "Collects and provides financial data including stock prices, Brent oil price, trading volume, and market capitalization using Alpha Vantage.",
+  "created_at": "2025-06-11T10:21:50.063578",
+  "updated_at": "2025-06-11T10:21:50.063647",
+  "status": "active",
+  "version": "1.0.0",
+  "base_path": "/financial-data-collector",
+  "endpoints": [
+    {
+      "path": "/test",
+      "method": "GET",
+      "description": "simple test endpoint",
+      "id": "dcba1958-bf71-4bf7-897e-778ffc6307e8",
+      "summary": "simple test endpoint",
+      "active": true,
+      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_test"
+    },
+    {
+      "path": "/stock-price",
+      "method": "GET",
+      "description": "Get current stock price for a given symbol.",
+      "id": "454c6139-ea00-439a-99b0-bf9414c2ee4a",
+      "summary": "Get current stock price for a given symbol.",
+      "active": true,
+      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_stock_price"
+    },
+    {
+      "path": "/brent-price",
+      "method": "GET",
+      "description": "Get current Brent oil price.",
+      "id": "90f68ea1-41ce-4f0c-ae22-fa5822c20c22",
+      "summary": "Get current Brent oil price.",
+      "active": true,
+      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_brent_price"
+    },
+    {
+      "path": "/trading-volume",
+      "method": "GET",
+      "description": "et trading volume for a given symbol.",
+      "id": "483af103-657b-4e55-ac89-b0d8d7642c1a",
+      "summary": "et trading volume for a given symbol.",
+      "active": true,
+      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_trading_volume"
+    },
+    {
+      "path": "/market-cap",
+      "method": "GET",
+      "description": "Get market capitalization for a given symbol.",
+      "id": "7e9e49ef-bd81-41f0-8d52-d3b9d6e891ce",
+      "summary": "Get market capitalization for a given symbol.",
+      "active": true,
+      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_market_cap"
+    },
+    {
+      "path": "/all-data",
+      "method": "GET",
+      "description": "Get all available financial data for a given symbol.",
+      "id": "862fd689-e725-45d1-90a1-36532feb58fe",
+      "summary": "Get all available financial data for a given symbol.",
+      "active": true,
+      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_all_data"
+    },
+    {
+      "path": "/collect",
+      "method": "GET",
+      "description": "Trigger the collection of all financial data.",
+      "id": "9dd08fbb-73c0-4a51-8119-1efef65dd268",
+      "summary": "Trigger the collection of all financial data.",
+      "active": true,
+      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_collect"
+    }
+  ],
+  "db_config": {
+    "type": "mongodb",
+    "config": {
+      "connection_string": "mongodb://localhost:27017/council_db",
+      "database": "council_db",
+      "collection": "financial_data_collector_collection"
+    }
+  }
+}
