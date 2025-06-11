@@ -198,6 +198,22 @@ def validate_method(method):
     """Validate HTTP method."""
     return method.upper() in ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
 
+def sanitize_for_python_identifier(text: str) -> str:
+    """Converts a string into a valid Python function name prefix."""
+    # Replace non-alphanumeric characters (except underscores) with underscores
+    s = re.sub(r'[^0-9a-zA-Z_]', '_', text)
+    # Remove leading/trailing underscores that might result from replacements like /items -> _items_
+    s = s.strip('_')
+    # Replace multiple consecutive underscores with a single one
+    s = re.sub(r'_+', '_', s)
+    # Ensure it doesn't start with a digit
+    if s and s[0].isdigit():
+        s = '_' + s
+    # Ensure it's not empty after sanitization
+    if not s:
+        return "handle_generic_endpoint" # Default if everything is stripped
+    return f"handle_{s.lower()}"
+
 
 def validate_yes_no(value):
     """Validate yes/no answer."""
@@ -263,6 +279,7 @@ async def create_automation():
         "description": description,
         "created_at": datetime.now().isoformat(),
         "updated_at": datetime.now().isoformat(),
+        "status": "active",
         "version": "1.0.0",  # Required by automation registry
         "base_path": f"/{name}",  # Required by automation registry
         "endpoints": [],
@@ -276,11 +293,40 @@ async def create_automation():
         },
     }
     
-    # Add endpoints with required summary field
-    for endpoint in endpoints:
-        endpoint_data = endpoint.copy()
-        endpoint_data["summary"] = endpoint["description"]  # Add required summary field
-        endpoint_data["active"] = True  # Mark endpoint as active
+    # Initialize list to store details for handlers.py generation
+    # This will be accessed later to generate the handlers.py file
+    if not hasattr(create_automation, "endpoint_details_for_handlers"):
+        create_automation.endpoint_details_for_handlers = []
+    else:
+        # Clear if re-running in same session (e.g. for tests or if wizard is looped)
+        create_automation.endpoint_details_for_handlers.clear()
+
+    # Process user-defined endpoints
+    for endpoint_info in endpoints: # 'endpoints' is the list from user input
+        endpoint_data = endpoint_info.copy()
+        # Use description for summary, or generate one if description is empty
+        endpoint_data["summary"] = endpoint_info["description"] if endpoint_info["description"] else f"{endpoint_info['method']} {endpoint_info['path']}"
+        endpoint_data["active"] = True
+        
+        # Generate specific handler for this endpoint 
+        # (User should not define /health here, as it's added automatically later)
+        if not endpoint_data["path"].lower().endswith('/health'):
+            raw_name_for_function = f"{endpoint_data['method']}_{endpoint_data['path']}"
+            handler_function_name = sanitize_for_python_identifier(raw_name_for_function)
+            
+            # Define the handler path for the automation configuration
+            # All handlers will now be in a single 'handlers.py' file
+            handler_path = f"src.interfaces.api.routers.{name}.handlers.{handler_function_name}"
+            endpoint_data["handler_path"] = handler_path
+            
+            # Store details for generating this function in handlers.py
+            create_automation.endpoint_details_for_handlers.append({
+                "method": endpoint_data['method'],
+                "path": endpoint_data['path'],
+                "function_name": handler_function_name,
+                "description": endpoint_info['description'] # Original description for the handler docstring
+            })
+        
         automation["endpoints"].append(endpoint_data)
         
     # Add health check endpoint for this automation
@@ -341,6 +387,52 @@ async def create_automation():
         content = '"""\nRouter implementation for ' + display_name + ' automation.\n"""\n\n' + router_code
         f.write(content)
     print_success(f"Created {router_dir}/router.py")
+
+    # --- Generate handlers.py ---
+    all_handler_functions_code = []
+    common_imports_for_handlers = [
+        "from datetime import datetime",
+        "from typing import Dict, Any, Optional",
+        "from fastapi import BackgroundTasks",
+        "# Ensure these are correctly typed if you have them defined",
+        "# from src.domain.models.automation_config import Automation, Endpoint",
+        "\n"  # Extra newline after imports
+    ]
+
+    handler_function_template_path = os.path.join(TEMPLATE_DIR, "handler_function_template.py")
+    single_function_template_body = "" # Initialize
+    try:
+        with open(handler_function_template_path, "r") as f_template:
+            full_template_content = f_template.read()
+            func_def_marker = "async def $function_name$"
+            func_def_start_index = full_template_content.find(func_def_marker)
+            if func_def_start_index != -1:
+                single_function_template_body = full_template_content[func_def_start_index:]
+            else:
+                print_error(f"Critical error: '{func_def_marker}' not found in {handler_function_template_path}.")
+    except FileNotFoundError:
+        print_error(f"Template file not found: {handler_function_template_path}. Cannot generate handlers.")
+
+    if single_function_template_body and hasattr(create_automation, "endpoint_details_for_handlers") and create_automation.endpoint_details_for_handlers:
+        for detail in create_automation.endpoint_details_for_handlers:
+            function_code = single_function_template_body
+            function_code = function_code.replace("$function_name$", detail["function_name"])
+            function_code = function_code.replace("$http_method$", detail["method"])
+            function_code = function_code.replace("$endpoint_path$", detail["path"])
+            all_handler_functions_code.append(function_code)
+
+        if all_handler_functions_code:
+            handlers_file_path = os.path.join(router_dir, "handlers.py")
+            final_handlers_py_content = "\n".join(common_imports_for_handlers) + "\n\n" + "\n\n".join(all_handler_functions_code)
+            with open(handlers_file_path, "w") as f_handlers:
+                f_handlers.write(final_handlers_py_content)
+            print_success(f"Created {handlers_file_path} with {len(all_handler_functions_code)} handlers.")
+    else:
+        if not single_function_template_body:
+            print_warning("Handler function template was empty or not processed correctly. No handlers generated.")
+        elif not hasattr(create_automation, "endpoint_details_for_handlers") or not create_automation.endpoint_details_for_handlers:
+            print("No user-defined endpoints to generate handlers for. Skipping handlers.py creation.") # Using standard print
+    # --- End Generate handlers.py ---
     
     # Step 4: Save the automation to storage
     print_header("Saving Automation")
@@ -427,6 +519,35 @@ async def create_automation():
         print_success(f"Created OpenAPI schema: {openapi_file}")
     except Exception as e:
         print_warning(f"Could not create OpenAPI schema: {e}")
+    
+    # Step 5: Create test files
+    print_success(f"Created {router_dir}/router.py")
+    
+    # Now create handler files if any were defined
+    if hasattr(create_automation, "handlers_to_create") and create_automation.handlers_to_create:
+        for handler_info in create_automation.handlers_to_create:
+            try:
+                handler_name = handler_info["name"]
+                path_part = handler_info["path_part"]
+                handler_filename = handler_info["handler_filename"]
+                handler_function_name = handler_info["handler_function_name"]
+                
+                # Create the handler file
+                with open(os.path.join(TEMPLATE_DIR, "handler_template.py"), "r") as template_file:
+                    handler_template = template_file.read()
+                
+                # Replace template variables
+                handler_code = handler_template.replace("$endpoint_name$", path_part)
+                handler_code = handler_code.replace("$handler_function_name$", handler_function_name)
+                handler_code = handler_code.replace("$automation_name$", name)
+                
+                # Write the handler file
+                handler_path = os.path.join(router_dir, handler_filename)
+                with open(handler_path, "w") as f:
+                    f.write(handler_code)
+                print_success(f"Created {handler_path}")
+            except Exception as e:
+                print_error(f"Error creating handler file: {str(e)}")
     
     # Step 5: Create test files
     print_header("Creating Test Files")

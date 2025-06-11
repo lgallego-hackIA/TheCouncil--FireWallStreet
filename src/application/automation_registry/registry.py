@@ -41,7 +41,7 @@ class AutomationRegistry:
         # Check if Vercel Blob Storage is available and configured
         use_blob_storage = BLOB_STORAGE_AVAILABLE and BlobStorageAdapter.is_available()
         
-        if use_blob_storage:
+        if BlobStorageAdapter.is_available():
             # Load from Vercel Blob Storage
             logger.info("Loading automations from Vercel Blob Storage")
             try:
@@ -54,14 +54,16 @@ class AutomationRegistry:
                         automation_data = await BlobStorageAdapter.load_json(key)
                         automation = Automation.parse_obj(automation_data)
                         self._automations[automation.name] = automation
-                        logger.info(f"Loaded automation from blob storage: {automation.name}")
+                        logger.info(f"Loaded automation {automation.name} (ID: {key}) from blob storage")
+                    except FileNotFoundError:
+                        logger.warning(f"Automation file for key {key} not found in blob storage. Skipping.")
                     except Exception as e:
-                        logger.error(f"Error loading automation {key} from blob storage: {e}")
+                        logger.error(f"Error parsing or loading automation {key} from blob storage: {e}")
             except Exception as e:
-                logger.error(f"Error listing automations from blob storage: {e}")
+                logger.error(f"Error listing automation keys from blob storage: {e}")
         else:
             # Fall back to file storage for local development
-            logger.info("Loading automations from file storage")
+            logger.info("Loading automations from local file storage at: " + self._storage_dir)
             # Create the storage directory if it doesn't exist
             os.makedirs(self._storage_dir, exist_ok=True)
             
@@ -69,14 +71,16 @@ class AutomationRegistry:
                 for filename in os.listdir(self._storage_dir):
                     if filename.endswith(".json"):
                         file_path = os.path.join(self._storage_dir, filename)
-                        
-                        with open(file_path, "r") as f:
-                            automation_data = json.load(f)
-                            automation = Automation.parse_obj(automation_data)
-                            self._automations[automation.name] = automation
-                            logger.info(f"Loaded automation from file: {automation.name}")
+                        try:
+                            with open(file_path, "r") as f:
+                                automation_data = json.load(f)
+                                automation = Automation.parse_obj(automation_data)
+                                self._automations[automation.name] = automation
+                                logger.info(f"Loaded automation from file: {automation.name} (File: {filename})")
+                        except Exception as e:
+                            logger.error(f"Error loading or parsing automation from file {filename}: {e}")
             except Exception as e:
-                logger.error(f"Error loading automations from file: {e}")
+                logger.error(f"Error listing files in automation directory {self._storage_dir}: {e}")
     
     async def get_all_automations(self) -> List[Automation]:
         """

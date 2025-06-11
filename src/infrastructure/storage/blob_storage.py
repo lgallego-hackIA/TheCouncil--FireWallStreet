@@ -55,8 +55,9 @@ class BlobStorageAdapter:
         Returns:
             bool: True if the adapter is available, False otherwise
         """
-        # The Vercel Blob Storage adapter is available if we have a token
-        return os.environ.get("BLOB_READ_WRITE_TOKEN") is not None or not IN_VERCEL
+        # The Vercel Blob Storage adapter is considered available only if we have a token.
+        # This ensures AutomationRegistry falls back to its direct file loading if token is not set or is empty.
+        return bool(os.environ.get("BLOB_READ_WRITE_TOKEN"))
         
     @staticmethod
     async def list_blobs(prefix: str = "") -> List[str]:
