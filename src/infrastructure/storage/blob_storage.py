@@ -181,28 +181,42 @@ class BlobStorageAdapter:
             return False
 
     @staticmethod
-    async def list_json_keys() -> List[str]:
+    async def list_json_keys(local_automations_path: Optional[str] = None) -> List[str]:
         """
-        List all JSON keys in Vercel Blob Storage with the specified prefix.
-        
-        Returns:
-            List[str]: List of keys (without the .json extension)
+        List all JSON keys (typically automation IDs).
+        If Vercel Blob Storage is available, lists from blob storage under 'automations/'.
+        Otherwise, if local_automations_path is provided, lists from the local file system.
+        Keys returned are the base names without .json extension (e.g., automation IDs).
         """
-        try:
-            # List blobs with the specified prefix
-            result: ListingResponse = await list_blobs({
-                "prefix": f"{BLOB_PREFIX}/",
-                "limit": 100  # Adjust as needed
-            })
+        keys: List[str] = []
+        if BlobStorageAdapter.is_available():
+            logger.info("Listing JSON keys from Vercel Blob Storage.")
+            try:
+                # BLOB_PREFIX is typically "automations"
+                blob_list_response = await vercel_blob.list(prefix=BLOB_PREFIX + "/", options={'limit': 1000})
+                for blob in blob_list_response.get('blobs', []):
+                    if blob.pathname.startswith(BLOB_PREFIX + "/") and blob.pathname.endswith(".json"):
+                        # Extract key: remove prefix "automations/" and suffix ".json"
+                        key = blob.pathname.replace(f"{BLOB_PREFIX}/", "", 1).replace(".json", "")
+                        if key: # Ensure key is not empty after stripping
+                            keys.append(key)
+                logger.info(f"Found {len(keys)} keys in Vercel Blob Storage.")
+            except Exception as e:
+                logger.error(f"Error listing JSON keys from Vercel Blob Storage: {e}")
+        elif local_automations_path:
+            logger.info(f"Vercel Blob Storage not available or token not set. Listing JSON keys from local path: {local_automations_path}")
+            try:
+                if os.path.isdir(local_automations_path):
+                    for filename in os.listdir(local_automations_path):
+                        if filename.endswith(".json"):
+                            key = filename.replace(".json", "")
+                            keys.append(key)
+                    logger.info(f"Found {len(keys)} keys in local directory: {local_automations_path}.")
+                else:
+                    logger.warning(f"Local automation path is not a directory: {local_automations_path}")
+            except Exception as e:
+                logger.error(f"Error listing JSON keys from local path {local_automations_path}: {e}")
+        else:
+            logger.warning("Vercel Blob Storage not available and no local_automations_path provided to list_json_keys.")
             
-            # Extract keys from the blob URLs
-            keys = []
-            for blob in result.blobs:
-                # Extract the key from the pathname (remove prefix and .json extension)
-                key = blob.pathname.replace(f"{BLOB_PREFIX}/", "").replace(".json", "")
-                keys.append(key)
-            
-            return keys
-        except Exception as e:
-            logger.error(f"Error listing blobs: {e}")
-            return []
+        return keys

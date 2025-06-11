@@ -71,6 +71,15 @@
       "summary": "Trigger the collection of all financial data.",
       "active": true,
       "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_collect"
+    },
+    {
+      "path": "/health",
+      "method": "GET",
+      "description": "Health check for the financial-data-collector automation.",
+      "id": "e4f2a3b1-1b9a-4b3c-8a7d-9f8e7d6c5b4a",
+      "summary": "Automation health check",
+      "active": true,
+      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_health"
     }
   ],
   "db_config": {
