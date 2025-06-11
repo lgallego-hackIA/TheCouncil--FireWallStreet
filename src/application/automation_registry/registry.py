@@ -4,6 +4,7 @@ Automation Registry for managing automations.
 import logging
 import os
 import json
+import re # Added for UUID pattern matching
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
@@ -97,10 +98,15 @@ class AutomationRegistry:
             if os.path.isdir(self._storage_dir):
                 logger.warning(f"Attempting direct local listing from: {self._storage_dir}")
                 try:
+                    uuid_pattern = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
                     for filename in os.listdir(self._storage_dir):
                         if filename.endswith(".json"):
-                            automation_ids.append(filename[:-5]) # remove .json
-                    logger.warning(f"Direct local listing found {len(automation_ids)} IDs: {automation_ids}")
+                            base_name = filename[:-5] # remove .json
+                            if uuid_pattern.match(base_name):
+                                automation_ids.append(base_name)
+                            else:
+                                logger.info(f"Skipping non-UUID-named JSON file during local scan: {filename}")
+                    logger.warning(f"Direct local listing (UUID filter) found {len(automation_ids)} IDs: {automation_ids}")
                 except Exception as e:
                     logger.error(f"Error during direct local listing from {self._storage_dir}: {e}", exc_info=True)
             else:
