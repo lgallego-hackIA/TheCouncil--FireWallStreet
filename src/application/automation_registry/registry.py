@@ -46,10 +46,11 @@ class AutomationRegistry:
         Load all automations from storage.
         Uses Vercel Blob Storage when available, falls back to file storage.
         """
-        # Check if Vercel Blob Storage is available and configured
-        use_blob_storage = BLOB_STORAGE_AVAILABLE and BlobStorageAdapter.is_available()
+        # Temporarily disable Vercel Blob Storage to debug file path issues
+        use_blob_storage = False
+        logger.info("Vercel Blob Storage is temporarily disabled for debugging.")
         
-        if BlobStorageAdapter.is_available():
+        if use_blob_storage:
             # Load from Vercel Blob Storage
             logger.info("Loading automations from Vercel Blob Storage")
             try:
