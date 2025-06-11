@@ -48,20 +48,21 @@ async def initialize_app_components():
     logger.info("--- VERCEL_API: initialize_app_components STARTED ---")
     
     try:
-        project_root = '/var/task' if os.environ.get('VERCEL') == '1' else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logger.info(f"--- Project Directory Listing from root: {project_root} ---")
-        for r_path, d_list, f_list_items in os.walk(project_root):
-            if '__pycache__' in d_list:
-                d_list.remove('__pycache__')
-            level = r_path.replace(project_root, '', 1).count(os.sep)
-            indent = ' ' * 4 * (level)
-            logger.info(f'{indent}{os.path.basename(r_path)}/')
-            sub_indent = ' ' * 4 * (level + 1)
-            #for f_item_name in f_list_items:
-             #   logger.info(f'{sub_indent}{f_item_name}')
-        logger.info("--- End Directory Listing ---")
+        logger.info("--- VERCEL_API: Skipping detailed directory listing for brevity/performance ---")
+        # project_root = '/var/task' if os.environ.get('VERCEL') == '1' else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # logger.info(f"--- Project Directory Listing from root: {project_root} ---")
+        # for r_path, d_list, f_list_items in os.walk(project_root):
+        #     if '__pycache__' in d_list:
+        #         d_list.remove('__pycache__')
+        #     level = r_path.replace(project_root, '', 1).count(os.sep)
+        #     indent = ' ' * 4 * (level)
+        #     logger.info(f'{indent}{os.path.basename(r_path)}/')
+        #     sub_indent = ' ' * 4 * (level + 1)
+        #     #for f_item_name in f_list_items:
+        #      #   logger.info(f'{sub_indent}{f_item_name}')
+        # logger.info("--- End Directory Listing ---")
     except Exception as e_dir:
-        logger.error(f"Failed to list project directories: {e_dir}")
+        logger.error(f"Failed to list project directories (during simplified log attempt): {e_dir}")
 
     logger.info("--- VERCEL_API: PREPARING to instantiate AutomationManager ---")
     try:
