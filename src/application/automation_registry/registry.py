@@ -36,7 +36,33 @@ class AutomationRegistry:
         # Define the project root based on the current file's location
         # This makes pathing reliable across different environments (local, Vercel)
         project_root = Path(__file__).resolve().parent.parent.parent.parent
+        logger.info(f"Project root determined to be: {project_root}")
+        try:
+            project_root_contents = os.listdir(project_root)
+            logger.info(f"Contents of project root ({project_root}): {project_root_contents}")
+        except Exception as e:
+            logger.error(f"Error listing contents of project root ({project_root}): {e}")
+
+        data_dir_path = project_root / "data"
+        logger.info(f"Checking data directory: {data_dir_path}")
+        if data_dir_path.exists() and data_dir_path.is_dir():
+            try:
+                data_dir_contents = os.listdir(data_dir_path)
+                logger.info(f"Contents of data directory ({data_dir_path}): {data_dir_contents}")
+            except Exception as e:
+                logger.error(f"Error listing contents of data directory ({data_dir_path}): {e}")
+        else:
+            logger.warning(f"Data directory ({data_dir_path}) does not exist or is not a directory.")
         default_storage_path = project_root / "data" / "automations"
+        logger.info(f"Default automation storage path defined as: {default_storage_path}")
+        if default_storage_path.exists() and default_storage_path.is_dir():
+            try:
+                automations_dir_contents = os.listdir(default_storage_path)
+                logger.info(f"Contents of default automation storage path ({default_storage_path}): {automations_dir_contents}")
+            except Exception as e:
+                logger.error(f"Error listing contents of default automation storage path ({default_storage_path}): {e}")
+        else:
+            logger.warning(f"Default automation storage path ({default_storage_path}) does not exist or is not a directory.")
         
         self._storage_dir = os.getenv("AUTOMATION_STORAGE_DIR", str(default_storage_path))
         logger.info(f"Automation storage directory set to: {self._storage_dir}")
