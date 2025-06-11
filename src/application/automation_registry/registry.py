@@ -71,104 +71,57 @@ class AutomationRegistry:
     
     async def load_automations(self) -> None:
         """
-        Load all automations from storage.
-        Prioritizes Vercel Blob Storage if BlobStorageAdapter is imported and configured,
-        otherwise falls back to local file system operations.
+        Load all automation definitions exclusively from the local filesystem storage.
+        It filters for JSON files with UUID-like names.
         """
-        logger.info(f"Starting to load automations. Using storage directory: {self._storage_dir}")
+        logger.info(f"Starting to load automation definitions from local storage: {self._storage_dir}")
         self._automations.clear()
-        automation_ids: List[str] = []
+        automation_files_loaded_count = 0
 
-        # Step 1: Get automation IDs
-        adapter_imported_and_not_none = BLOB_STORAGE_AVAILABLE and BlobStorageAdapter is not None
-        if adapter_imported_and_not_none:
-            logger.warning("BlobStorageAdapter class is available. Attempting to list keys using it.")
-            try:
-                # BlobStorageAdapter.list_json_keys handles its own .is_available() runtime check and local fallback.
-                automation_ids = await BlobStorageAdapter.list_json_keys(local_automations_path=self._storage_dir)
-                logger.warning(f"BlobStorageAdapter.list_json_keys returned {len(automation_ids)} IDs: {automation_ids}")
-            except Exception as e:
-                logger.error(f"Error calling BlobStorageAdapter.list_json_keys: {e}. Will attempt direct local listing.", exc_info=True)
-                automation_ids = [] # Reset to ensure fallback if adapter method failed
-        else:
-            logger.warning("BlobStorageAdapter class is NOT available (import failed or None). Proceeding with direct local file system listing.")
-
-        # Fallback or primary local listing if adapter wasn't used or its list_json_keys failed
-        if not automation_ids:
-            if os.path.isdir(self._storage_dir):
-                logger.warning(f"Attempting direct local listing from: {self._storage_dir}")
-                try:
-                    uuid_pattern = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-                    for filename in os.listdir(self._storage_dir):
-                        if filename.endswith(".json"):
-                            base_name = filename[:-5] # remove .json
-                            if uuid_pattern.match(base_name):
-                                automation_ids.append(base_name)
-                            else:
-                                logger.info(f"Skipping non-UUID-named JSON file during local scan: {filename}")
-                    logger.warning(f"Direct local listing (UUID filter) found {len(automation_ids)} IDs: {automation_ids}")
-                except Exception as e:
-                    logger.error(f"Error during direct local listing from {self._storage_dir}: {e}", exc_info=True)
-            else:
-                logger.warning(f"Automation storage directory {self._storage_dir} is not a valid directory. Cannot list local files.")
-
-        # Step 2: Load automation data for each ID
-        if not automation_ids:
-            logger.warning("No automation IDs found from any source. No automations will be loaded.")
-            logger.info(f"Finished loading automations. Total registered: {len(self._automations)}")
+        if not os.path.isdir(self._storage_dir):
+            logger.warning(f"Automation storage directory {self._storage_dir} is not a valid directory. Cannot load automation definitions.")
+            logger.info(f"Finished loading automation definitions. Total registered: {len(self._automations)}")
             return
-        logger.warning(f"Proceeding to load data for {len(automation_ids)} automation IDs: {automation_ids}")
-        logger.info(f"Proceeding to load data for {len(automation_ids)} automation IDs: {automation_ids}")
-        for automation_id in automation_ids:
+
+        uuid_pattern = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+        
+        for filename in os.listdir(self._storage_dir):
+            if not filename.endswith(".json"):
+                continue
+
+            base_name = filename[:-5]  # remove .json
+            if not uuid_pattern.match(base_name):
+                logger.info(f"Skipping non-UUID-named JSON file during local scan: {filename}")
+                continue
+
+            automation_id = base_name
+            file_path = os.path.join(self._storage_dir, filename)
             automation_data: Optional[Dict[str, Any]] = None
-            loaded_from = ""
+            loaded_from = f"local file ({file_path})"
+            
+            logger.info(f"Attempting to load automation definition ID '{automation_id}' from {loaded_from}")
 
-            # Check if we can and should try loading from blob storage via the adapter
-            # This requires: 1. Adapter class imported, 2. Adapter not None, 3. Adapter's runtime check passes
-            can_try_blob_via_adapter = adapter_imported_and_not_none and BlobStorageAdapter.is_available()
-
-            if can_try_blob_via_adapter:
-                logger.debug(f"Attempting to load automation ID '{automation_id}' from Vercel Blob Storage (via Adapter). Adapter available: True")
-                try:
-                    automation_data = await BlobStorageAdapter.load_json(automation_id)
-                    if automation_data:
-                        loaded_from = "Vercel Blob Storage (via Adapter)"
-                        logger.info(f"Successfully retrieved data for ID '{automation_id}' from {loaded_from}.")
-                except FileNotFoundError:
-                    logger.info(f"ID '{automation_id}' not found in Vercel Blob Storage. Will try local file.")
-                except Exception as e:
-                    logger.error(f"Error loading ID '{automation_id}' from Vercel Blob Storage: {e}. Will try local file.", exc_info=True)
-            else:
-                logger.info(f"Skipping Vercel Blob Storage for ID '{automation_id}'. Adapter imported: {adapter_imported_and_not_none}, Adapter runtime available: {BlobStorageAdapter.is_available() if adapter_imported_and_not_none else 'N/A'}")
-
-            # If not loaded from blob, try loading from local file system
-            if not automation_data:
-                file_path = os.path.join(self._storage_dir, f"{automation_id}.json")
-                logger.warning(f"Attempting to load automation ID '{automation_id}' from local file: {file_path}")
-                logger.debug(f"Attempting to load automation ID '{automation_id}' from local file: {file_path}")
-                if os.path.exists(file_path) and os.path.isfile(file_path):
-                    try:
-                        with open(file_path, "r") as f:
-                            automation_data = json.load(f)
-                        loaded_from = f"local file ({file_path})"
-                        logger.info(f"Successfully loaded data for ID '{automation_id}' from {loaded_from}.")
-                    except Exception as e:
-                        logger.error(f"Error loading or parsing ID '{automation_id}' from file {file_path}: {e}", exc_info=True)
-                else:
-                    logger.warning(f"Local file for ID '{automation_id}' not found at {file_path}.")
+            try:
+                with open(file_path, "r") as f:
+                    automation_data = json.load(f)
+                logger.info(f"Successfully loaded data for ID '{automation_id}' from {loaded_from}.")
+            except Exception as e:
+                logger.error(f"Error loading or parsing ID '{automation_id}' from {file_path}: {e}", exc_info=True)
+                continue # Skip this file if loading/parsing fails
 
             if automation_data:
                 try:
                     automation = Automation.parse_obj(automation_data)
                     self._automations[automation.name] = automation
-                    logger.info(f"Successfully parsed and registered automation: {automation.name} (ID from file/key: {automation_id}) from {loaded_from}.")
+                    automation_files_loaded_count += 1
+                    logger.info(f"Successfully parsed and registered automation: {automation.name} (ID: {automation_id}) from {loaded_from}.")
                 except Exception as e:
                     logger.error(f"Error parsing Automation object for ID '{automation_id}' from {loaded_from}: {e}. Data: {str(automation_data)[:200]}...", exc_info=True)
             else:
-                logger.warning(f"Could not load data for automation ID '{automation_id}' from any source.")
-        
-        logger.warning(f"Finished loading automations. Total registered: {len(self._automations)}")
-        logger.info(f"Finished loading automations. Total registered: {len(self._automations)}")
+                # This case should ideally not be reached if file loading was successful but json.load returned None/empty
+                logger.warning(f"No data loaded for automation ID '{automation_id}' from {file_path}, though file was processed.")
+
+        logger.info(f"Finished loading automation definitions. Successfully loaded and registered {automation_files_loaded_count} automations. Total in registry: {len(self._automations)}.")
 
     
     async def get_all_automations(self) -> List[Automation]:
