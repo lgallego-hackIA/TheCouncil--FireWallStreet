@@ -4,9 +4,11 @@ Test script to verify that our local blob storage implementation works correctly
 import asyncio
 import json
 import os
+import pytest
 from src.infrastructure.storage.blob_storage import BlobStorageAdapter
 from src.infrastructure.storage.openapi_storage import OpenAPIStorage
 
+@pytest.mark.asyncio
 async def test_local_blob_storage():
     """Test local blob storage functionality."""
     print("Testing Local Blob Storage Implementation")

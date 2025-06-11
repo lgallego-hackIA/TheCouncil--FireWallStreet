@@ -5,6 +5,7 @@ This module adapts the FastAPI application to run on Vercel's serverless environ
 import sys
 import os
 import logging
+from datetime import datetime
 from contextlib import asynccontextmanager
 
 # Mark environment as serverless
@@ -132,15 +133,15 @@ async def health_check():
     automations = []
     if automation_registry and hasattr(automation_registry, 'get_all_automations'):
         try:
-            automations = automation_registry.get_all_automations()
+            automations = await automation_registry.get_all_automations()
         except Exception as e:
             logger.error(f"Error getting automations: {e}")
     
     return {
         "status": "healthy",
-        "timestamp": str(settings.current_time),
+        "timestamp": datetime.now().isoformat(),
         "version": "0.1.0",
-        "environment": "serverless" if settings.is_serverless else "local",
+        "environment": "serverless" if os.environ.get('VERCEL') == '1' else "local",
         "registered_automations": len(automations) if automations else 0,
         "automations": [a.id for a in automations] if automations else []
     }

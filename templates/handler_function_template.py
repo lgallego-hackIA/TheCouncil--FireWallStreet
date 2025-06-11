@@ -1,4 +1,4 @@
-async def $function_name$(
+async def $function_name$($path_params_signature$
     params: Dict[str, Any],
     repository: Optional[Any], # Replace Any with actual Repository type
     automation: Any, # Replace Any with actual Automation type

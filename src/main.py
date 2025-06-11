@@ -2,9 +2,14 @@
 theCouncil API main application entry point.
 """
 import logging
+import os
+import sys
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+# Add 'src' to path for module resolution
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.application.automation_registry.registry import AutomationRegistry
 from src.application.automation_manager import AutomationManager
