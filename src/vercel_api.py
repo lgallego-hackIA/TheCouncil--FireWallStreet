@@ -44,6 +44,26 @@ automation_manager = None
 async def lifespan(app: FastAPI):
     # Initialize components on startup
     logger.info("Starting theCouncil API (Vercel serverless mode)")
+    
+    # Log the directory structure for debugging purposes on Vercel
+    try:
+        project_root = '/var/task' if os.environ.get('VERCEL') == '1' else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        logger.info(f"--- Project Directory Listing from root: {project_root} ---")
+        for root, dirs, files in os.walk(project_root):
+            # Exclude __pycache__ to reduce noise
+            if '__pycache__' in dirs:
+                dirs.remove('__pycache__')
+            
+            level = root.replace(project_root, '').count(os.sep)
+            indent = ' ' * 4 * (level)
+            logger.info(f'{indent}{os.path.basename(root)}/')
+            sub_indent = ' ' * 4 * (level + 1)
+            for f in files:
+                logger.info(f'{sub_indent}{f}')
+        logger.info("--- End Directory Listing ---")
+    except Exception as e:
+        logger.error(f"Failed to list project directories: {e}")
+
     global automation_manager
     
     # Create automation manager
