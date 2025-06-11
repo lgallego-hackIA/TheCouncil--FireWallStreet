@@ -1,0 +1,23 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Market-Prices API",
+    "description": "to get market prices",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/prices": {
+      "get": {
+        "summary": "gets prices",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {}
+            }
+          }
+        }
+      }
+    }
+  }
+}
