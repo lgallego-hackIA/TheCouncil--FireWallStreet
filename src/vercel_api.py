@@ -42,46 +42,49 @@ automation_manager = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.error("--- VERCEL_API: LIFESPAN FUNCTION STARTED ---")
-    # Initialize components on startup
-    logger.info("Starting theCouncil API (Vercel serverless mode)")
+    logger.error("--- VERCEL_API: LIFESPAN FUNCTION STARTED (SIMPLIFIED) ---")
+    # # Initialize components on startup
+    # logger.info("Starting theCouncil API (Vercel serverless mode)") # Commented out
     
-    # Log the directory structure for debugging purposes on Vercel
-    try:
-        project_root = '/var/task' if os.environ.get('VERCEL') == '1' else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logger.info(f"--- Project Directory Listing from root: {project_root} ---")
-        for root, dirs, files in os.walk(project_root):
-            # Exclude __pycache__ to reduce noise
-            if '__pycache__' in dirs:
-                dirs.remove('__pycache__')
+    # # Log the directory structure for debugging purposes on Vercel
+    # try:
+    #     project_root = '/var/task' if os.environ.get('VERCEL') == '1' else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    #     logger.info(f"--- Project Directory Listing from root: {project_root} ---")
+    #     for root, dirs, files in os.walk(project_root):
+    #         # Exclude __pycache__ to reduce noise
+    #         if '__pycache__' in dirs:
+    #             dirs.remove('__pycache__')
             
-            level = root.replace(project_root, '').count(os.sep)
-            indent = ' ' * 4 * (level)
-            logger.info(f'{indent}{os.path.basename(root)}/')
-            sub_indent = ' ' * 4 * (level + 1)
-            for f in files:
-                logger.info(f'{sub_indent}{f}')
-        logger.info("--- End Directory Listing ---")
-    except Exception as e:
-        logger.error(f"Failed to list project directories: {e}")
+    #         level = root.replace(project_root, '').count(os.sep)
+    #         indent = ' ' * 4 * (level)
+    #         logger.info(f'{indent}{os.path.basename(root)}/')
+    #         sub_indent = ' ' * 4 * (level + 1)
+    #         for f in files:
+    #             logger.info(f'{sub_indent}{f}')
+    #     logger.info("--- End Directory Listing ---")
+    # except Exception as e:
+    #     logger.error(f"Failed to list project directories: {e}")
 
-    global automation_manager
+    # global automation_manager
     
-    # Create automation manager
-    automation_manager = AutomationManager(app, automation_registry)
+    # # Create automation manager
+    # # automation_manager = AutomationManager(app, automation_registry) # Commented out
     
-    # Initialize the automation manager
-    logger.error("--- VERCEL_API: ATTEMPTING AutomationManager.initialize() ---")
-    await automation_manager.initialize()
+    # # Initialize the automation manager
+    # # logger.error("--- VERCEL_API: ATTEMPTING AutomationManager.initialize() ---") # Commented out
+    # # await automation_manager.initialize() # Commented out
     
-    # Store router_manager in app.state for middleware to access
-    app.state.router_manager = automation_manager.router_manager
-    logger.info("Router manager stored in app state for middleware access")
+    # # Store router_manager in app.state for middleware to access
+    # # app.state.router_manager = automation_manager.router_manager # Commented out
+    # # logger.info("Router manager stored in app state for middleware access") # Commented out
+    
+    logger.error("--- VERCEL_API: LIFESPAN FUNCTION YIELDING (SIMPLIFIED) ---")
     
     yield
     
     # Cleanup on shutdown
     logger.info("Shutting down theCouncil API")
+    logger.error("--- VERCEL_API: LIFESPAN FUNCTION CLEANUP (SIMPLIFIED) ---")
 
 # Create FastAPI application with lifespan manager for proper initialization
 app = FastAPI(
