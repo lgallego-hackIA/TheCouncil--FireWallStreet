@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "functions": {
+    "src/vercel_api.py": {
+      "includeFiles": "data/**"
+    }
+  },
   "builds": [
     {
       "src": "src/vercel_api.py",
