@@ -4,6 +4,7 @@ from typing import Dict, Any
 from src.application.automation_registry.registry import AutomationRegistry
 from src.domain.automation.models import Automation, Endpoint, AutomationStatus, HttpMethod
 import importlib
+import json
 import inspect
 
 logger = logging.getLogger(__name__)
@@ -29,16 +30,9 @@ class RouterManager:
         Adds and stores a router specifically for an automation.
         The actual prefix under which it's served will depend on the automation's configuration.
         """
-        effective_prefix = prefix or f"/{automation_id}" # Placeholder logic
-        effective_automation_name = automation_name or automation_id
-        
-        # Use the provided prefix and automation_name directly
         self.app.include_router(router, prefix=prefix, tags=[f"Automation: {automation_name}"])
         self.routers[automation_id] = router
         logger.info(f"Router for automation '{automation_id}' (name: '{automation_name}') added with prefix '{prefix}'.")
-        
-        # Add health check endpoint for this automation
-        self.add_health_check_for_automation(automation_name, automation_id)
 
     def remove_router_for_automation(self, automation_id: str):
         """
@@ -56,32 +50,7 @@ class RouterManager:
         else:
             logger.warning(f"Router for automation '{automation_id}' not found for removal.")
 
-    def add_health_check_for_automation(self, automation_name: str, automation_id: str):
-        """
-        Adds a dedicated health check endpoint for a specific automation.
-        Based on memory 3ec1b4f3-8ec4-4995-981b-f47ca14473eb.
-        The health check path is /[automation_name]/health.
-        """
-        health_router = APIRouter()
-        # The health path is relative to the automation's base path if routers are nested,
-        # or absolute if health checks are registered at the top level prefixed by automation name.
-        # Memory suggests /automation-name/health, implying it's a top-level path segment.
-        health_path = "/health" # This will be prefixed by the automation_name router itself.
-
-        # Create a new router for the health check, to be mounted under /automation_name
-        automation_base_router = APIRouter()
-
-        @automation_base_router.get(health_path, tags=[f"Health Checks", f"Automation: {automation_name}"])
-        async def automation_health():
-            return {
-                "service": automation_name,
-                "status": "healthy",
-                "message": f"{automation_name} automation is operating normally"
-            }
-        
-        # Mount this health router under the automation_name prefix
-        self.app.include_router(automation_base_router, prefix=f"/{automation_name}")
-        logger.info(f"Health check endpoint added for automation '{automation_name}' at '/{automation_name}{health_path}'.")
+    
 
     def get_all_routers(self) -> Dict[str, APIRouter]:
         return self.routers
@@ -148,6 +117,18 @@ class RouterManager:
                         # Path parameters take precedence if names collide
                         merged_params = {**query_params_dict, **request.path_params}
 
+                        # Handle request body for relevant methods
+                        if request.method in ["POST", "PUT", "PATCH"]:
+                            body_bytes = await request.body()
+                            if body_bytes:
+                                try:
+                                    merged_params["body"] = json.loads(body_bytes)
+                                except json.JSONDecodeError:
+                                    logger.warning(f"Request body for {request.method} {request.url.path} is not valid JSON.")
+                                    merged_params["body"] = None
+                            else:
+                                merged_params["body"] = None
+
                         # Call the actual handler using the captured variables
                         return await h_func(
                             params=merged_params,
@@ -173,8 +154,18 @@ class RouterManager:
                 except Exception as e:
                     logger.error(f"Unexpected error registering endpoint {endpoint_config.path} for {automation.name}: {e}")
             
+            # Add a dedicated health check endpoint to the automation's router
+            # This uses a default argument to capture the current automation's name and avoid late-binding issues
+            @automation_router.get("/health", tags=[f"Health Checks", f"Automation: {automation.name}"])
+            async def automation_health(name=automation.name):
+                return {
+                    "service": name,
+                    "status": "healthy",
+                    "message": f"{name} automation is operating normally"
+                }
+            logger.info(f"Health check endpoint added for '{automation.name}' at '{automation.base_path}/health'.")
+
             # Add the configured router for this automation
-            # The add_router_for_automation method will also add the health check
             self.add_router_for_automation(
                 automation_id=automation.id,
                 router=automation_router,
@@ -183,39 +174,4 @@ class RouterManager:
             )
         logger.info("Finished registering automation routers.")
 
-# Example usage (for testing or if RouterManager is used independently)
-if __name__ == '__main__':
-    app_instance = FastAPI()
-    # For example usage, we'd need a mock or real AutomationRegistry
-    # from src.application.automation_registry.registry import AutomationRegistry # Already imported above
-    # class MockAutomationRegistry:
-    #     def get_automation_by_id(self, automation_id):
-    #         return None # Or a mock automation object
-    # mock_registry = MockAutomationRegistry()
-    # router_manager = RouterManager(app_instance, mock_registry)
-    # The example below won't run directly without a registry, commenting out for now
-    # router_manager = RouterManager(app_instance, None) # This would fail, needs a registry
 
-    sample_router = APIRouter()
-    @sample_router.get("/test")
-    async def test_endpoint():
-        return {"message": "Test"}
-    router_manager.add_router("/sample", sample_router, tags=["Sample"])
-
-    automation_specific_router = APIRouter()
-    @automation_specific_router.get("/data")
-    async def get_automation_data():
-        return {"data": "some automation data"}
-    
-    # When add_router_for_automation is called, it will also set up /my_automation_123/health
-    router_manager.add_router_for_automation(
-        automation_id="auto123", 
-        router=automation_specific_router, 
-        prefix="/automations/my_automation_123", 
-        automation_name="my_automation_123"
-    )
-
-    # To run and see: uvicorn <filename>:app_instance --reload (replace <filename>)
-    # Access: /sample/test
-    # Access: /automations/my_automation_123/data
-    # Access: /my_automation_123/health

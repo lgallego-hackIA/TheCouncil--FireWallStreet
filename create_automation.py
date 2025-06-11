@@ -11,117 +11,8 @@ import asyncio
 from datetime import datetime
 import uuid
 import re
+import textwrap
 import shutil
-import colorama
-from colorama import Fore, Style
-
-# Initialize colorama for colored terminal output
-colorama.init(autoreset=True)
-
-# Helper functions for UI
-def print_header(text):
-    """Print a colored header."""
-    print(f"\n{Fore.CYAN}{Style.BRIGHT}{'=' * 50}")
-    print(f"{Fore.CYAN}{Style.BRIGHT}{text.center(50)}")
-    print(f"{Fore.CYAN}{Style.BRIGHT}{'=' * 50}\n")
-
-def print_success(text):
-    """Print a success message."""
-    print(f"{Fore.GREEN}✓ {text}")
-
-def print_error(text):
-    """Print an error message."""
-    print(f"{Fore.RED}✗ {text}")
-
-def print_warning(text):
-    """Print a warning message."""
-    print(f"{Fore.YELLOW}⚠ {text}")
-
-def get_input(prompt, default=None, validator=None):
-    """Get user input with optional default and validation."""
-    while True:
-        if default:
-            user_input = input(f"{prompt} [{default}]: ").strip()
-            if not user_input:
-                user_input = default
-        else:
-            user_input = input(f"{prompt}: ").strip()
-        
-        if validator:
-            is_valid, error = validator(user_input)
-            if not is_valid:
-                print_error(error)
-                continue
-        
-        return user_input
-
-def get_yes_no(prompt, default=None):
-    """Get a yes/no answer from the user."""
-    default_str = None
-    if default:
-        default = default.lower()
-        if default.startswith('y'):
-            default_str = 'y/N'
-            default = True
-        elif default.startswith('n'):
-            default_str = 'Y/n'
-            default = False
-    
-    while True:
-        if default_str:
-            user_input = input(f"{prompt} [{default_str}]: ").strip().lower()
-        else:
-            user_input = input(f"{prompt} [y/n]: ").strip().lower()
-        
-        if not user_input and default is not None:
-            return default
-        
-        if user_input.startswith('y'):
-            return True
-        elif user_input.startswith('n'):
-            return False
-        
-        print_error("Please answer 'y' or 'n'.")
-
-# Validators
-def validate_name(name):
-    """Validate automation name (alphanumeric and dashes)."""
-    if not name:
-        return False, "Name cannot be empty."
-    
-    if not re.match(r'^[a-zA-Z0-9-]+$', name):
-        return False, "Name can only contain alphanumeric characters and dashes."
-    
-    return True, ""
-
-def validate_not_empty(value):
-    """Validate that a value is not empty."""
-    if not value:
-        return False, "Value cannot be empty."
-    
-    return True, ""
-
-def validate_path(path):
-    """Validate API path."""
-    if not path:
-        return False, "Path cannot be empty."
-    
-    if not path.startswith('/'):
-        return False, "Path must start with a slash (/)."
-    
-    return True, ""
-
-def validate_method(method):
-    """Validate HTTP method."""
-    valid_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']
-    
-    if not method:
-        return False, "Method cannot be empty."
-    
-    if method.upper() not in valid_methods:
-        return False, f"Method must be one of: {', '.join(valid_methods)}."
-    
-    return True, ""
 
 # Constant for template files
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
@@ -415,11 +306,47 @@ async def create_automation():
 
     if single_function_template_body and hasattr(create_automation, "endpoint_details_for_handlers") and create_automation.endpoint_details_for_handlers:
         for detail in create_automation.endpoint_details_for_handlers:
-            function_code = single_function_template_body
-            function_code = function_code.replace("$function_name$", detail["function_name"])
-            function_code = function_code.replace("$http_method$", detail["method"])
-            function_code = function_code.replace("$endpoint_path$", detail["path"])
-            all_handler_functions_code.append(function_code)
+            # Logic for handling request body for POST/PUT/PATCH
+            body_handling_code = ""
+            body_in_response_code = ""
+            if detail["method"] in ["POST", "PUT", "PATCH"]:
+                # This code will be inserted inside the function body, so it needs indentation.
+                body_code = textwrap.dedent("""
+                    # The request body is parsed by RouterManager and available in params['body']
+                    request_body = params.get("body")  # Use .get() for safety, returns None if not found
+                    print(f"Received body: {request_body}")
+                """)
+                body_handling_code = textwrap.indent(body_code, '    ')
+                # This code goes inside the return dictionary, so it needs more indentation.
+                body_in_response_code = textwrap.indent('"received_body": request_body,', ' ' * 8)
+
+            # Logic for handling path parameters
+            path_param_handling_code = ""
+            path_params = re.findall(r'\{([^}]+)\}', detail["path"])
+            if path_params:
+                # Each line is already indented with 4 spaces.
+                for param in path_params:
+                    path_param_handling_code += f'    {param} = params.get("{param}")\n'
+
+            # Prepare substitutions
+            substitutions = {
+                'function_name': detail["function_name"],
+                'http_method': detail["method"],
+                'endpoint_path': detail["path"],
+                'body_handling_code': body_handling_code,
+                'path_param_handling_code': path_param_handling_code,
+                'body_in_response': body_in_response_code
+            }
+
+            handler_code = single_function_template_body
+            handler_code = handler_code.replace("$function_name$", substitutions['function_name'])
+            handler_code = handler_code.replace("$http_method$", substitutions['http_method'])
+            handler_code = handler_code.replace("$endpoint_path$", substitutions['endpoint_path'])
+            handler_code = handler_code.replace("$body_handling_code$", substitutions['body_handling_code'])
+            handler_code = handler_code.replace("$path_param_handling_code$", substitutions['path_param_handling_code'])
+            handler_code = handler_code.replace("$body_in_response$", substitutions['body_in_response'])
+
+            all_handler_functions_code.append(handler_code)
 
         if all_handler_functions_code:
             handlers_file_path = os.path.join(router_dir, "handlers.py")
