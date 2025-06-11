@@ -81,26 +81,29 @@ class AutomationRegistry:
         # Step 1: Get automation IDs
         adapter_imported_and_not_none = BLOB_STORAGE_AVAILABLE and BlobStorageAdapter is not None
         if adapter_imported_and_not_none:
-            logger.info("BlobStorageAdapter class is available. Attempting to list keys using it.")
+            console.log("BlobStorageAdapter class is available. Attempting to list keys using it.")
+            logger.warning("BlobStorageAdapter class is available. Attempting to list keys using it.")
             try:
                 # BlobStorageAdapter.list_json_keys handles its own .is_available() runtime check and local fallback.
                 automation_ids = await BlobStorageAdapter.list_json_keys(local_automations_path=self._storage_dir)
-                logger.info(f"BlobStorageAdapter.list_json_keys returned {len(automation_ids)} IDs: {automation_ids}")
+                console.log(f"BlobStorageAdapter.list_json_keys returned {len(automation_ids)} IDs: {automation_ids}")
+                logger.warning(f"BlobStorageAdapter.list_json_keys returned {len(automation_ids)} IDs: {automation_ids}")
             except Exception as e:
                 logger.error(f"Error calling BlobStorageAdapter.list_json_keys: {e}. Will attempt direct local listing.", exc_info=True)
                 automation_ids = [] # Reset to ensure fallback if adapter method failed
         else:
-            logger.info("BlobStorageAdapter class is NOT available (import failed or None). Proceeding with direct local file system listing.")
+            logger.warning("BlobStorageAdapter class is NOT available (import failed or None). Proceeding with direct local file system listing.")
 
         # Fallback or primary local listing if adapter wasn't used or its list_json_keys failed
         if not automation_ids:
             if os.path.isdir(self._storage_dir):
-                logger.info(f"Attempting direct local listing from: {self._storage_dir}")
+                console.log(f"Attempting direct local listing from: {self._storage_dir}")
+                logger.warning(f"Attempting direct local listing from: {self._storage_dir}")
                 try:
                     for filename in os.listdir(self._storage_dir):
                         if filename.endswith(".json"):
                             automation_ids.append(filename[:-5]) # remove .json
-                    logger.info(f"Direct local listing found {len(automation_ids)} IDs: {automation_ids}")
+                    logger.warning(f"Direct local listing found {len(automation_ids)} IDs: {automation_ids}")
                 except Exception as e:
                     logger.error(f"Error during direct local listing from {self._storage_dir}: {e}", exc_info=True)
             else:
@@ -111,7 +114,7 @@ class AutomationRegistry:
             logger.warning("No automation IDs found from any source. No automations will be loaded.")
             logger.info(f"Finished loading automations. Total registered: {len(self._automations)}")
             return
-
+        console.log("Proceeding to load data for {len(automation_ids)} automation IDs: {automation_ids}")
         logger.info(f"Proceeding to load data for {len(automation_ids)} automation IDs: {automation_ids}")
         for automation_id in automation_ids:
             automation_data: Optional[Dict[str, Any]] = None
@@ -160,6 +163,7 @@ class AutomationRegistry:
             else:
                 logger.warning(f"Could not load data for automation ID '{automation_id}' from any source.")
         
+        console.log(f"Finished loading automations. Total registered: {len(self._automations)}")
         logger.info(f"Finished loading automations. Total registered: {len(self._automations)}")
 
     
