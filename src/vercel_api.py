@@ -7,7 +7,7 @@ import os
 import logging
 
 # Mark environment as serverless
-os.environ['VERCEL'] = '1'
+os.environ['VERCEL'] = '0'
 
 # Add project root to path to ensure imports work correctly
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
