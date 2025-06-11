@@ -141,6 +141,7 @@ class AutomationRegistry:
             # If not loaded from blob, try loading from local file system
             if not automation_data:
                 file_path = os.path.join(self._storage_dir, f"{automation_id}.json")
+                console.log(f"Attempting to load automation ID '{automation_id}' from local file: {file_path}")
                 logger.debug(f"Attempting to load automation ID '{automation_id}' from local file: {file_path}")
                 if os.path.exists(file_path) and os.path.isfile(file_path):
                     try:
