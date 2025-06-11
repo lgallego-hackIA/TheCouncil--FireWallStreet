@@ -89,50 +89,6 @@ async def startup_event():
         logger.error("AutomationManager does not have router_manager attribute after initialization (from on_event).")
     logger.error("--- VERCEL_API: ON_EVENT STARTUP FUNCTION COMPLETED ---")
 
-# --- DIRECT INITIALIZATION TEST BLOCK START ---
-# This block is for diagnostic purposes to see if code can run here when on_event isn't firing.
-logger.error("--- VERCEL_API: EXECUTING DIRECT INITIALIZATION TEST BLOCK ---")
-try:
-    # Simplified, synchronous version of startup logic for testing
-    logger.info("Direct Init: Starting theCouncil API (Vercel serverless mode)")
-    
-    # Log the directory structure for debugging purposes on Vercel
-    try:
-        direct_project_root = '/var/task' if os.environ.get('VERCEL') == '1' else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logger.info(f"Direct Init: --- Project Directory Listing from root: {direct_project_root} ---")
-        for r, d, f_list in os.walk(direct_project_root):
-            if '__pycache__' in d:
-                d.remove('__pycache__')
-            lvl = r.replace(direct_project_root, '', 1).count(os.sep)
-            ind = ' ' * 4 * (lvl)
-            logger.info(f'Direct Init: {ind}{os.path.basename(r)}/')
-            sub_ind = ' ' * 4 * (lvl + 1)
-            for item_f in f_list:
-                logger.info(f'Direct Init: {sub_ind}{item_f}')
-        logger.info("Direct Init: --- End Directory Listing ---")
-    except Exception as e_dir:
-        logger.error(f"Direct Init: Failed to list project directories: {e_dir}")
-
-    # Attempt to create and initialize AutomationManager directly (synchronous parts if possible)
-    # Note: AutomationManager.initialize is async, so this is a partial test.
-    # We are primarily checking if this code block *executes*.
-    if 'app' in locals() and 'automation_registry' in locals():
-        logger.info("Direct Init: 'app' and 'automation_registry' are in locals.")
-        temp_automation_manager = AutomationManager(app, automation_registry) # app is FastAPI instance
-        logger.info("Direct Init: temp_AutomationManager INSTANTIATED.")
-        # Cannot easily call await temp_automation_manager.initialize() here directly in sync code.
-        # The main goal is to see if this block runs.
-        # For a fuller test, one might try asyncio.run(temp_automation_manager.initialize()),
-        # but that can conflict with Uvicorn's event loop.
-        # We will rely on the @app.on_event("startup") to call the async initialize.
-    else:
-        logger.error("Direct Init: 'app' or 'automation_registry' not found in locals(). This is unexpected.")
-
-    logger.error("--- VERCEL_API: DIRECT INITIALIZATION TEST BLOCK COMPLETED ---")
-except Exception as e_direct_init:
-    logger.error(f"--- VERCEL_API: ERROR IN DIRECT INITIALIZATION TEST BLOCK: {e_direct_init} ---", exc_info=True)
-# --- DIRECT INITIALIZATION TEST BLOCK END ---
-
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
