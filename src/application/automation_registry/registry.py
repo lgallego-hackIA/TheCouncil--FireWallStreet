@@ -10,15 +10,16 @@ from uuid import uuid4
 
 from src.domain.automation.models import Automation, AutomationStatus
 from src.shared.exceptions import AutomationNotFoundError
+
+logger = logging.getLogger(__name__) # Initialize logger once at the module level
+
 try:
     from src.infrastructure.storage.blob_storage import BlobStorageAdapter
     BLOB_STORAGE_AVAILABLE = True
 except ImportError:
-    logger = logging.getLogger(__name__)
-    logger.warning("Vercel Blob Storage not available. Falling back to file storage.")
+    logger.warning("BlobStorageAdapter import failed. Vercel Blob Storage features will be unavailable. Falling back to local file mechanisms where applicable.")
     BLOB_STORAGE_AVAILABLE = False
-
-logger = logging.getLogger(__name__)
+    BlobStorageAdapter = None # Ensure BlobStorageAdapter is defined for type hinting or checks, even if not usable
 
 
 class AutomationRegistry:
