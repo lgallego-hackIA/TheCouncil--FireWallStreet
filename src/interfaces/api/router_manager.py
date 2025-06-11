@@ -1,6 +1,6 @@
 import logging
 from fastapi import FastAPI, APIRouter, Request, BackgroundTasks
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from src.application.automation_registry.registry import AutomationRegistry
 from src.domain.automation.models import Automation, Endpoint, AutomationStatus, HttpMethod
 import importlib
@@ -110,28 +110,32 @@ class RouterManager:
                         e_config=endpoint_config,
                         current_automation=automation  # Capture the current automation object
                     ) -> Dict[str, Any]:
-                        # Convert query_params from starlette's MultiDict to a simple dict
+                        # Prepare params for the handler (query and body)
                         query_params_dict = {k: v for k, v in request.query_params.items()}
-                        
-                        # Merge path and query parameters
-                        # Path parameters take precedence if names collide
-                        merged_params = {**query_params_dict, **request.path_params}
+                        params_for_handler = {"query_params": query_params_dict}
 
                         # Handle request body for relevant methods
                         if request.method in ["POST", "PUT", "PATCH"]:
                             body_bytes = await request.body()
                             if body_bytes:
                                 try:
-                                    merged_params["body"] = json.loads(body_bytes)
+                                    params_for_handler["body"] = json.loads(body_bytes)
                                 except json.JSONDecodeError:
                                     logger.warning(f"Request body for {request.method} {request.url.path} is not valid JSON.")
-                                    merged_params["body"] = None
+                                    params_for_handler["body"] = None
                             else:
-                                merged_params["body"] = None
+                                params_for_handler["body"] = None
+                        else:
+                            params_for_handler["body"] = None # Ensure 'body' key exists
+                        
+                        logger.debug(f"Calling h_func: {h_func.__name__}")
+                        logger.debug(f"Path params from request.path_params: {request.path_params}")
+                        logger.debug(f"Params for handler (query/body): {params_for_handler}")
 
                         # Call the actual handler using the captured variables
                         return await h_func(
-                            params=merged_params,
+                            **request.path_params,  # Spread path parameters from request.path_params
+                            params=params_for_handler,   # Pass the clean dict for query/body
                             repository=None, # Placeholder
                             automation=current_automation, # Use the captured automation object
                             endpoint=e_config,
