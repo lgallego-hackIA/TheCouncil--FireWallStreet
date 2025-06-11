@@ -1,14 +1,12 @@
 {
   "version": 2,
-  "functions": {
-    "src/vercel_api.py": {
-      "includeFiles": "data/**"
-    }
-  },
   "builds": [
     {
       "src": "src/vercel_api.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": "data/**"
+      }
     }
   ],
   "routes": [
