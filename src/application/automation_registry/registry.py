@@ -4,6 +4,7 @@ Automation Registry for managing automations.
 import logging
 import os
 import json
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
@@ -31,7 +32,13 @@ class AutomationRegistry:
     def __init__(self):
         """Initialize the automation registry."""
         self._automations: Dict[str, Automation] = {}
-        self._storage_dir = os.getenv("AUTOMATION_STORAGE_DIR", "data/automations")
+        
+        # Define the project root based on the current file's location
+        # This makes pathing reliable across different environments (local, Vercel)
+        project_root = Path(__file__).resolve().parent.parent.parent.parent
+        default_storage_path = project_root / "data" / "automations"
+        
+        self._storage_dir = os.getenv("AUTOMATION_STORAGE_DIR", str(default_storage_path))
     
     async def load_automations(self) -> None:
         """
