@@ -76,7 +76,14 @@ class AutomationRegistry:
             os.makedirs(self._storage_dir, exist_ok=True)
             
             try:
-                for filename in os.listdir(self._storage_dir):
+                if not os.path.isdir(self._storage_dir):
+                    logger.warning(f"Automation storage path is not a directory: {self._storage_dir}")
+                    return
+                
+                files_in_dir = os.listdir(self._storage_dir)
+                logger.info(f"Files found in automation directory: {files_in_dir}")
+
+                for filename in files_in_dir:
                     if filename.endswith(".json"):
                         file_path = os.path.join(self._storage_dir, filename)
                         try:

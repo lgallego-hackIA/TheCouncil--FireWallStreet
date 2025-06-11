@@ -5,8 +5,6 @@ This module adapts the FastAPI application to run on Vercel's serverless environ
 import sys
 import os
 import logging
-from datetime import datetime
-from contextlib import asynccontextmanager
 
 # Mark environment as serverless
 os.environ['VERCEL'] = '1'
@@ -14,7 +12,14 @@ os.environ['VERCEL'] = '1'
 # Add project root to path to ensure imports work correctly
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import necessary components
+# It's crucial to set up logging BEFORE importing any other application modules
+# to ensure that loggers are configured correctly from the start.
+from src.shared.logging import setup_logging
+setup_logging()
+
+# Now, import the rest of the components
+from datetime import datetime
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -24,10 +29,8 @@ from src.application.automation_manager import AutomationManager
 from src.interfaces.console.router import router as console_router
 from src.shared.exceptions import TheCouncilError
 from src.shared.config import get_settings
-from src.shared.logging import setup_logging
 
-# Set up logging (will detect serverless environment)
-setup_logging()
+
 logger = logging.getLogger(__name__)
 
 # Load settings
