@@ -48,8 +48,11 @@ class AutomationManager:
         This method is called during application startup to load
         all existing automations and register their API routes.
         """
+        logger.error("--- AUTOMATION_MANAGER: INITIALIZE METHOD STARTED ---")
         # Load automations from storage
+        logger.error("--- AUTOMATION_MANAGER: ATTEMPTING automation_registry.load_automations() ---")
         await self.automation_registry.load_automations()
+        logger.error("--- AUTOMATION_MANAGER: COMPLETED automation_registry.load_automations() ---")
         
         # Register API routes for all active automations
         await self.router_manager.register_all_routers()

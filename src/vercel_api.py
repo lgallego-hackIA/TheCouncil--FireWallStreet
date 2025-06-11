@@ -42,6 +42,7 @@ automation_manager = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.error("--- VERCEL_API: LIFESPAN FUNCTION STARTED ---")
     # Initialize components on startup
     logger.info("Starting theCouncil API (Vercel serverless mode)")
     
@@ -70,6 +71,7 @@ async def lifespan(app: FastAPI):
     automation_manager = AutomationManager(app, automation_registry)
     
     # Initialize the automation manager
+    logger.error("--- VERCEL_API: ATTEMPTING AutomationManager.initialize() ---")
     await automation_manager.initialize()
     
     # Store router_manager in app.state for middleware to access
