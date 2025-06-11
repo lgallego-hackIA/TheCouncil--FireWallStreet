@@ -39,6 +39,7 @@ class AutomationRegistry:
         default_storage_path = project_root / "data" / "automations"
         
         self._storage_dir = os.getenv("AUTOMATION_STORAGE_DIR", str(default_storage_path))
+        logger.info(f"Automation storage directory set to: {self._storage_dir}")
     
     async def load_automations(self) -> None:
         """
