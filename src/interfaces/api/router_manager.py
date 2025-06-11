@@ -147,8 +147,9 @@ class RouterManager:
                         endpoint=handler_func_wrapper,
                         methods=[endpoint_config.method.value.upper()],
                         tags=[automation.name],
-                        response_model=Dict # Explicitly set response model to Dict
-                        # Consider adding other parameters if needed
+                        summary=endpoint_config.description,  # Use endpoint description for summary
+                        response_model=Dict, # Explicitly set response model to Dict
+                        include_in_schema=True # Ensure it's included in OpenAPI
                     )
                     logger.info(f"Successfully registered endpoint: {endpoint_config.method.value} {automation.base_path}{endpoint_config.path} for {automation.name}")
                 except ImportError as e:
