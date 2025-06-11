@@ -37,9 +37,23 @@ class AutomationManager:
             automation_registry: The registry of automations
             router_manager: Optional router manager (created if not provided)
         """
+        logger.info("--- AutomationManager.__init__: Initializing ---")
         self.app = app
+        logger.info("--- AutomationManager.__init__: app assigned ---")
         self.automation_registry = automation_registry
-        self.router_manager = router_manager or RouterManager(app, automation_registry)
+        logger.info("--- AutomationManager.__init__: automation_registry assigned ---")
+        if router_manager:
+            self.router_manager = router_manager
+            logger.info("--- AutomationManager.__init__: Using provided router_manager ---")
+        else:
+            logger.info("--- AutomationManager.__init__: router_manager not provided, CREATING NEW RouterManager ---")
+            try:
+                self.router_manager = RouterManager(app, automation_registry)
+                logger.info("--- AutomationManager.__init__: SUCCESSFULLY CREATED RouterManager ---")
+            except Exception as e_rm_init:
+                logger.error(f"--- AutomationManager.__init__: FAILED to create RouterManager: {e_rm_init} ---", exc_info=True)
+                raise # Re-raise the exception to signal failure
+        logger.info("--- AutomationManager.__init__: COMPLETED ---")
     
     async def initialize(self) -> None:
         """
@@ -48,8 +62,11 @@ class AutomationManager:
         This method is called during application startup to load
         all existing automations and register their API routes.
         """
+        logger.error("--- AUTOMATION_MANAGER: INITIALIZE METHOD STARTED ---")
         # Load automations from storage
+        logger.error("--- AUTOMATION_MANAGER: ATTEMPTING automation_registry.load_automations() ---")
         await self.automation_registry.load_automations()
+        logger.error("--- AUTOMATION_MANAGER: COMPLETED automation_registry.load_automations() ---")
         
         # Register API routes for all active automations
         await self.router_manager.register_all_routers()
