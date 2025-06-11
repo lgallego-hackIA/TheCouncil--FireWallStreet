@@ -91,6 +91,7 @@ app = FastAPI(
     debug=settings.DEBUG,
     lifespan=lifespan
 )
+logger.error("--- VERCEL_API: FastAPI app object CREATED ---")
 
 # Add CORS middleware
 app.add_middleware(
