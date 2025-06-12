@@ -299,16 +299,22 @@ class BlobStorageAdapter:
 
         try:
             loop = asyncio.get_running_loop()
+            options = {
+                "token": BLOB_READ_WRITE_TOKEN,
+                "addRandomSuffix": "true" if add_random_suffix else "false",
+                # Content-Type is typically inferred by the local SDK's put via guess_mime_type(pathname)
+                # If 'application/json' needs to be forced and guess_mime_type is insufficient,
+                # the local SDK's put function might need a way to override x-content-type via options.
+            }
             response_dict = await loop.run_in_executor(
                 None,
                 local_sdk_put,
-                pathname,
-                json_body_bytes,
-                add_random_suffix,
-                'public', # access
-                'application/json', # content_type
-                None, # cache_control_max_age
-                BLOB_READ_WRITE_TOKEN # token
+                pathname,       # path
+                json_body_bytes,     # data
+                options,        # options dictionary
+                # timeout=10,   # Default in local_sdk_put, can be omitted
+                # verbose=False, # Default in local_sdk_put, can be omitted
+                multipart=False # Explicitly False for these JSON saves
             )
             
             if not isinstance(response_dict, dict) or 'url' not in response_dict:
