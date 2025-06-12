@@ -260,7 +260,7 @@ class FinancialDataService:
         """
         try:
             if BLOB_STORAGE_AVAILABLE and BlobStorageAdapter.is_available():
-                url = await BlobStorageAdapter.save_json(key+"_"+datetime.now().isoformat(), data, folder="financial_data_collector")
+                url = await BlobStorageAdapter.save_json(key+"_"+datetime.now().strftime("%Y-%m-%d"), data, folder="financial_data_collector")
                 logger.info(f"Datos financieros guardados en Blob Storage: {url}")
                 return url
             else:
