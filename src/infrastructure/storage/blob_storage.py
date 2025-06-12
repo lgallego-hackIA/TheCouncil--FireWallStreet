@@ -3,6 +3,7 @@ Vercel Blob Storage adapter for theCouncil.
 This module provides functionality for storing and retrieving data from Vercel Blob Storage.
 """
 import sys
+import traceback
 # CRITICAL DEBUG PRINT 1
 print("BLOB_STORAGE.PY: TOP LEVEL EXECUTION STARTED", file=sys.stderr)
 sys.stderr.flush()
@@ -25,6 +26,8 @@ BlobCommandOptions, BlobListOptions, BlobListResponse, BlobListResult, BlobPutOp
 DelBlobResult, HeadBlobResult, ListBlobResult, PutBlobResult = (None,) * 4
 BlobNotFoundError, ListingResponse = (None,) * 2
 
+_CACHED_IMPORT_ERROR_DETAILS = "No ImportError occurred or details not captured."
+
 # CRITICAL DEBUG PRINT 2
 print("BLOB_STORAGE.PY: ATTEMPTING VERCEL_BLOB IMPORT BLOCK", file=sys.stderr)
 sys.stderr.flush()
@@ -42,9 +45,9 @@ try:
     VERCEL_BLOB_AVAILABLE = True
     logger.info("vercel_blob SDK imported successfully and all components assigned.")
 except ImportError as e_import:
-    print(f"BLOB_STORAGE.PY: CAUGHT IMPORT_ERROR: {str(e_import)}", file=sys.stderr)
-    import traceback
-    traceback.print_exc(file=sys.stderr)
+    _CACHED_IMPORT_ERROR_DETAILS = traceback.format_exc()
+    # Now print, after details are captured
+    print(f"BLOB_STORAGE.PY: CAUGHT IMPORT_ERROR: {str(e_import)}. Details captured:\n{_CACHED_IMPORT_ERROR_DETAILS}", file=sys.stderr)
     sys.stderr.flush()
     VERCEL_BLOB_AVAILABLE = False # Ensure this is set
     # DO NOT re-raise e_import here. Allow module to load with dummies.
@@ -132,19 +135,61 @@ class BlobStorageAdapter:
     def is_available() -> bool:
         print("BLOB_STORAGE.PY: BlobStorageAdapter.is_available() CALLED", file=sys.stderr)
         sys.stderr.flush()
-        """Check if the Vercel Blob Storage adapter is considered available.
 
-        Availability depends solely on the presence of the BLOB_READ_WRITE_TOKEN.
-        
-        Returns:
-            bool: True if the token is present, False otherwise.
-        """
-        if BLOB_READ_WRITE_TOKEN:
-            logger.debug("BLOB_READ_WRITE_TOKEN is present. BlobStorageAdapter reports as available.")
-            return True
-        else:
-            logger.info("BLOB_READ_WRITE_TOKEN is not set. BlobStorageAdapter reports as unavailable.")
+        if not VERCEL_BLOB_AVAILABLE:
+            error_message = (
+                "Vercel Blob Storage SDK (vercel_blob) failed to import or initialize correctly. "
+                f"Cached ImportError details:\n{_CACHED_IMPORT_ERROR_DETAILS}"
+            )
+            logger.error(error_message)
+            print(f"BLOB_STORAGE.PY: is_available() - VERCEL_BLOB_AVAILABLE is False. {error_message}", file=sys.stderr)
+            sys.stderr.flush()
             return False
+
+        if not BLOB_READ_WRITE_TOKEN:
+            logger.info("BLOB_READ_WRITE_TOKEN is not set. BlobStorageAdapter reports as unavailable.")
+            print("BLOB_STORAGE.PY: is_available() - BLOB_READ_WRITE_TOKEN is not set.", file=sys.stderr)
+            sys.stderr.flush()
+            return False
+        
+        # Check if essential components are assigned and not dummies
+        # Assuming _dummy_blob_op_import_error is the one assigned on ImportError
+        # and _dummy_blob_op_general_error for other errors.
+        # We need to check against the actual function objects if possible, or by name if they are unique.
+        # For simplicity, checking for None which is the initial state before any assignment.
+        # And also checking against the known dummy function if VERCEL_BLOB_AVAILABLE was true but then components were bad.
+        
+        # A more robust check would be to see if they are the dummy functions.
+        # This requires the dummy functions to be defined in a scope accessible here or passed.
+        # For now, let's assume if VERCEL_BLOB_AVAILABLE is True, the components should be the real ones.
+        # The primary failure mode we're debugging is VERCEL_BLOB_AVAILABLE becoming False due to ImportError.
+
+        # Let's refine the check for actual components being usable
+        # This part of the check is more relevant if VERCEL_BLOB_AVAILABLE was true, but something else went wrong.
+        # However, the main goal now is to see the ImportError details if VERCEL_BLOB_AVAILABLE is false.
+        
+        # We can add a check for key components not being None if VERCEL_BLOB_AVAILABLE is True
+        # This is a secondary check after the VERCEL_BLOB_AVAILABLE and TOKEN checks.
+        essential_components = {
+            "put": put,
+            "get": get,
+            "list_blobs": list_blobs,
+            "del_blob": del_blob,
+            "head": head,
+            "copy": copy,
+            "PutBlobResult": PutBlobResult,
+            "BlobNotFoundError": BlobNotFoundError
+        }
+        missing_sdk_parts = [name for name, comp in essential_components.items() if comp is None or comp.__name__.startswith('_dummy_blob_op')]
+
+        if missing_sdk_parts:
+            logger.error(f"BlobStorageAdapter: VERCEL_BLOB_AVAILABLE is True and Token is set, but essential SDK components are missing or dummies: {missing_sdk_parts}")
+            print(f"BLOB_STORAGE.PY: is_available() - Essential SDK components missing/dummies: {missing_sdk_parts}", file=sys.stderr)
+            sys.stderr.flush()
+            return False
+
+        logger.debug("VERCEL_BLOB_AVAILABLE is True, Token is set, and essential components seem okay. BlobStorageAdapter reports as available.")
+        return True
         
     @staticmethod
     async def list_blobs(prefix: str = "") -> List[str]:
