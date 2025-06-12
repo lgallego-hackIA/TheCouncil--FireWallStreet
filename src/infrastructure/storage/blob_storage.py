@@ -2,6 +2,10 @@
 Vercel Blob Storage adapter for theCouncil.
 This module provides functionality for storing and retrieving data from Vercel Blob Storage.
 """
+import sys
+# CRITICAL DEBUG PRINT 1
+print("BLOB_STORAGE.PY: TOP LEVEL EXECUTION STARTED", file=sys.stderr)
+sys.stderr.flush()
 import os
 import json
 import logging
@@ -21,6 +25,9 @@ BlobCommandOptions, BlobListOptions, BlobListResponse, BlobListResult, BlobPutOp
 DelBlobResult, HeadBlobResult, ListBlobResult, PutBlobResult = (None,) * 4
 BlobNotFoundError, ListingResponse = (None,) * 2
 
+# CRITICAL DEBUG PRINT 2
+print("BLOB_STORAGE.PY: ATTEMPTING VERCEL_BLOB IMPORT BLOCK", file=sys.stderr)
+sys.stderr.flush()
 try:
     logger.info(f"Attempting to import vercel_blob. Python version: {sys.version}")
     logger.info(f"PYTHONPATH: {os.environ.get('PYTHONPATH')}")
@@ -35,14 +42,12 @@ try:
     VERCEL_BLOB_AVAILABLE = True
     logger.info("vercel_blob SDK imported successfully and all components assigned.")
 except ImportError as e_import:
-    logger.error(f"!!! CAPTURED ImportError (exc_info=True): {e_import} !!!", exc_info=True)
-    # Also print to stderr, Vercel might pick this up more readily for crashes
-    import sys as _sys_for_print # Use a unique alias
-    print(f"!!! CAPTURED ImportError (printed to stderr): {e_import} !!!", file=_sys_for_print.stderr)
-    _sys_for_print.stderr.flush() # Attempt to force flush stderr
-    # For now, let's re-raise to make sure Vercel shows the crash with this specific error
-    raise e_import # This will stop execution here if import fails
-    # VERCEL_BLOB_AVAILABLE = False # This line and subsequent dummy setup will not be reached if e_import is raised.
+    print(f"BLOB_STORAGE.PY: CAUGHT IMPORT_ERROR: {str(e_import)}", file=sys.stderr)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+    sys.stderr.flush()
+    VERCEL_BLOB_AVAILABLE = False # Explicitly set before re-raising
+    raise e_import
 
     async def _dummy_blob_op_import_error(*args, **kwargs):
         logger.error("vercel_blob SDK is not installed or failed to import (ImportError). Blob operation cannot proceed.")
@@ -72,7 +77,10 @@ except ImportError as e_import:
     ListingResponse = _DummyBlobTypeImportError
 
 except Exception as e_general:
-    logger.error(f"An unexpected error occurred during vercel_blob SDK import or setup: {e_general}", exc_info=True)
+    print(f"BLOB_STORAGE.PY: CAUGHT GENERAL_EXCEPTION: {str(e_general)}", file=sys.stderr)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+    sys.stderr.flush()
     VERCEL_BLOB_AVAILABLE = False
 
     async def _dummy_blob_op_general_error(*args, **kwargs):
@@ -102,6 +110,13 @@ except Exception as e_general:
     BlobNotFoundError = _DummyBlobTypeGeneralError
     ListingResponse = _DummyBlobTypeGeneralError
 
+# CRITICAL DEBUG PRINT 5
+if VERCEL_BLOB_AVAILABLE:
+    print("BLOB_STORAGE.PY: VERCEL_BLOB_AVAILABLE is TRUE after import block", file=sys.stderr)
+else:
+    print("BLOB_STORAGE.PY: VERCEL_BLOB_AVAILABLE is FALSE after import block", file=sys.stderr)
+sys.stderr.flush()
+
 # Re-initialize logger as the previous one might have been shadowed if local_blob was imported
 logger = logging.getLogger(__name__)
 
@@ -114,6 +129,8 @@ class BlobStorageAdapter:
 
     @staticmethod
     def is_available() -> bool:
+        print("BLOB_STORAGE.PY: BlobStorageAdapter.is_available() CALLED", file=sys.stderr)
+        sys.stderr.flush()
         """Check if the Vercel Blob Storage adapter is considered available.
 
         Availability depends solely on the presence of the BLOB_READ_WRITE_TOKEN.
