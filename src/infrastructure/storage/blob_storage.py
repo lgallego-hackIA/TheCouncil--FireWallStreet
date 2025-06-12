@@ -304,6 +304,7 @@ class BlobStorageAdapter:
             options = {
                 "token": BLOB_READ_WRITE_TOKEN,
                 "addRandomSuffix": "true" if add_random_suffix else "false",
+                "allowOverwrite": "true",
                 # Content-Type is typically inferred by the local SDK's put via guess_mime_type(pathname)
                 # If 'application/json' needs to be forced and guess_mime_type is insufficient,
                 # the local SDK's put function might need a way to override x-content-type via options.
