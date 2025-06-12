@@ -12,33 +12,26 @@ from datetime import timedelta
 # Set up logger
 logger = logging.getLogger(__name__)
 
-# Check if in Vercel environment
-IN_VERCEL = os.environ.get('VERCEL') == '1'
+try:
+    from vercel_blob import put, get, list_blobs, del_blob, PutBlobResult
+    from vercel_blob.types import BlobNotFoundError, ListingResponse
+    logger.info("Successfully imported vercel_blob SDK.")
+except ImportError:
+    logger.critical(
+        "vercel_blob SDK not found. This is required for BlobStorageAdapter. "
+        "Please install it (e.g., pip install vercel-blob)."
+    )
+    # To allow the application to load but fail on usage, define dummy functions.
+    # This helps in environments where the SDK might not be immediately available but code needs to be parsed.
+    def _dummy_blob_op(*args, **kwargs):
+        logger.error("vercel_blob SDK is not installed. Blob operation cannot proceed.")
+        raise NotImplementedError("vercel_blob SDK not installed.")
+    put = get = list_blobs = del_blob = _dummy_blob_op
+    PutBlobResult = dict # type: ignore
+    BlobNotFoundError = type('BlobNotFoundError', (Exception,), {}) # type: ignore
+    ListingResponse = dict # type: ignore
 
-# Check if Blob Storage token is available
-HAS_BLOB_TOKEN = os.environ.get('BLOB_READ_WRITE_TOKEN') is not None
-
-# Define if Blob Storage is available (either real or mock)
-BLOB_STORAGE_AVAILABLE = IN_VERCEL and HAS_BLOB_TOKEN or not IN_VERCEL
-
-# Import appropriate Blob implementation based on environment
-if IN_VERCEL and HAS_BLOB_TOKEN:
-    # Use actual Vercel Blob when in Vercel environment and token is available
-    try:
-        from vercel_blob import put, get, list_blobs, del_blob, PutBlobResult
-        from vercel_blob.types import BlobNotFoundError, ListingResponse
-        IS_MOCK = False
-    except ImportError:
-        logger.warning("Failed to import vercel_blob, falling back to local implementation")
-        from src.infrastructure.storage.local_blob import put, get, list_blobs, del_blob, PutBlobResult
-        from src.infrastructure.storage.local_blob import BlobNotFoundError, ListingResponse
-        IS_MOCK = True
-else:
-    # Use local mock implementation when in development
-    from src.infrastructure.storage.local_blob import put, get, list_blobs, del_blob, PutBlobResult
-    from src.infrastructure.storage.local_blob import BlobNotFoundError, ListingResponse
-    IS_MOCK = True
-
+# Re-initialize logger as the previous one might have been shadowed if local_blob was imported
 logger = logging.getLogger(__name__)
 
 # Environment variables for Vercel Blob
@@ -50,23 +43,19 @@ class BlobStorageAdapter:
 
     @staticmethod
     def is_available() -> bool:
-        """Check if the blob storage adapter is available.
+        """Check if the Vercel Blob Storage adapter is considered available.
 
-        Checks for FORCE_LOCAL_AUTOMATIONS env var first. If true, returns False.
-        Otherwise, availability depends on BLOB_READ_WRITE_TOKEN.
+        Availability depends solely on the presence of the BLOB_READ_WRITE_TOKEN.
         
         Returns:
-            bool: True if the adapter is available, False otherwise
+            bool: True if the token is present, False otherwise.
         """
-        
-        # Original check: The Vercel Blob Storage adapter is considered available only if we have a token.
-        # This ensures AutomationRegistry falls back to its direct file loading if token is not set or is empty.
-        token_present = bool(os.environ.get("BLOB_READ_WRITE_TOKEN"))
-        if not token_present:
-            logger.info("BLOB_READ_WRITE_TOKEN not found. BlobStorageAdapter reports as unavailable.")
+        if BLOB_READ_WRITE_TOKEN:
+            logger.debug("BLOB_READ_WRITE_TOKEN is present. BlobStorageAdapter reports as available.")
+            return True
         else:
-            logger.info("BLOB_READ_WRITE_TOKEN found. BlobStorageAdapter reports as available (unless FORCE_LOCAL_AUTOMATIONS overrides).")
-        return token_present
+            logger.info("BLOB_READ_WRITE_TOKEN is not set. BlobStorageAdapter reports as unavailable.")
+            return False
         
     @staticmethod
     async def list_blobs(prefix: str = "") -> List[str]:
@@ -113,16 +102,6 @@ class BlobStorageAdapter:
             RuntimeError: If in mock mode on Vercel, indicating misconfiguration.
             Exception: If any other error occurs during saving.
         """
-        # Pre-check for mock mode on Vercel
-        if IS_MOCK and VERCEL_ENV: # VERCEL_ENV is set means we are on Vercel
-            err_msg = (
-                f"BlobStorageAdapter is in mock mode (IS_MOCK=True) while on Vercel (VERCEL_ENV='{VERCEL_ENV}'). "
-                f"Cannot save key '{key}' to read-only filesystem. "
-                f"Ensure VERCEL_ENV is 'production' and BLOB_READ_WRITE_TOKEN is correctly set at module import time."
-            )
-            logger.error(err_msg)
-            raise RuntimeError(err_msg)
-
         if not BlobStorageAdapter.is_available():
             logger.warning(
                 f"BlobStorageAdapter.is_available() returned False for key '{key}'. "
