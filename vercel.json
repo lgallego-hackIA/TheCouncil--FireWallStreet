@@ -14,5 +14,11 @@
       "src": "/(.*)",
       "dest": "src/vercel_api.py"
     }
+  ],
+  "crons": [
+    {
+      "path": "/financial-data-collector/all-data",
+      "schedule": "30 14 * * *"
+    }
   ]
 }
