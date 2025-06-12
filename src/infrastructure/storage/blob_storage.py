@@ -25,8 +25,13 @@ try:
     logger.info(f"Attempting to import vercel_blob. Python version: {sys.version}")
     logger.info(f"PYTHONPATH: {os.environ.get('PYTHONPATH')}")
     logger.info(f"sys.path: {sys.path}")
-    from vercel_blob import put, get, list_blobs, del_blob, PutBlobResult, BlobNotFoundError, ListingResponse
-    logger.info("Successfully imported vercel_blob SDK.")
+    from vercel_blob import (
+        put, get, list_blobs, del_blob, head, copy,
+        BlobCommandOptions, BlobListOptions, BlobListResponse, BlobListResult, BlobPutOptions,
+        DelBlobResult, HeadBlobResult, ListBlobResult, PutBlobResult,
+        BlobNotFoundError, ListingResponse
+    )
+    logger.info("Successfully attempted to import all expected components from vercel_blob SDK.")
     VERCEL_BLOB_AVAILABLE = True
     logger.info("vercel_blob SDK imported successfully and all components assigned.")
 except ImportError as e_import:
