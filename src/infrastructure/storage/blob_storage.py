@@ -309,12 +309,12 @@ class BlobStorageAdapter:
             response_dict = await loop.run_in_executor(
                 None,
                 local_sdk_put,
-                pathname,       # path
-                json_body_bytes,     # data
-                options,        # options dictionary
-                # timeout=10,   # Default in local_sdk_put, can be omitted
-                # verbose=False, # Default in local_sdk_put, can be omitted
-                multipart=False # Explicitly False for these JSON saves
+                pathname,        # path
+                json_body_bytes, # data
+                options,         # options dictionary
+                10,              # timeout (default for local_sdk_put)
+                False,           # verbose (default for local_sdk_put)
+                False            # multipart (explicitly False for these JSON saves)
             )
             
             if not isinstance(response_dict, dict) or 'url' not in response_dict:
