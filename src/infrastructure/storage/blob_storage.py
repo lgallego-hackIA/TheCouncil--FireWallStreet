@@ -38,8 +38,9 @@ except ImportError as e_import:
         raise NotImplementedError(f"vercel_blob SDK not installed or failed to import: {e_import}")
 
     put = _dummy_blob_op_import_error
+    get = _dummy_blob_op_import_error
     list_blobs = _dummy_blob_op_import_error
-    delete = _dummy_blob_op_import_error
+    del_blob = _dummy_blob_op_import_error
     head = _dummy_blob_op_import_error
     copy = _dummy_blob_op_import_error
 
@@ -68,8 +69,9 @@ except Exception as e_general:
         raise NotImplementedError(f"Unexpected error during vercel_blob setup: {e_general}")
 
     put = _dummy_blob_op_general_error
+    get = _dummy_blob_op_general_error
     list_blobs = _dummy_blob_op_general_error
-    delete = _dummy_blob_op_general_error
+    del_blob = _dummy_blob_op_general_error
     head = _dummy_blob_op_general_error
     copy = _dummy_blob_op_general_error
 
