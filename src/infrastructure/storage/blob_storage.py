@@ -58,10 +58,6 @@ class BlobStorageAdapter:
         Returns:
             bool: True if the adapter is available, False otherwise
         """
-        force_local = os.environ.get("FORCE_LOCAL_AUTOMATIONS", "false").lower()
-        if force_local in ["true", "1"]:
-            logger.info("FORCE_LOCAL_AUTOMATIONS is set. BlobStorageAdapter will report as unavailable.")
-            return False
         
         # Original check: The Vercel Blob Storage adapter is considered available only if we have a token.
         # This ensures AutomationRegistry falls back to its direct file loading if token is not set or is empty.
