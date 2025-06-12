@@ -108,7 +108,28 @@ class BlobStorageAdapter:
             
         Returns:
             str: The URL of the saved blob
+            
+        Raises:
+            RuntimeError: If in mock mode on Vercel, indicating misconfiguration.
+            Exception: If any other error occurs during saving.
         """
+        # Pre-check for mock mode on Vercel
+        if IS_MOCK and VERCEL_ENV: # VERCEL_ENV is set means we are on Vercel
+            err_msg = (
+                f"BlobStorageAdapter is in mock mode (IS_MOCK=True) while on Vercel (VERCEL_ENV='{VERCEL_ENV}'). "
+                f"Cannot save key '{key}' to read-only filesystem. "
+                f"Ensure VERCEL_ENV is 'production' and BLOB_READ_WRITE_TOKEN is correctly set at module import time."
+            )
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)
+
+        if not BlobStorageAdapter.is_available():
+            logger.warning(
+                f"BlobStorageAdapter.is_available() returned False for key '{key}'. "
+                f"If on Vercel, this is unexpected. Token set: {bool(BLOB_READ_WRITE_TOKEN)}. "
+                f"Proceeding with configured 'put' operation (might be local_blob.put)."
+            )
+
         try:
             # Convert data to JSON string
             json_data = json.dumps(data, default=str, indent=2)
@@ -119,14 +140,14 @@ class BlobStorageAdapter:
             # Use the key as the filename with .json extension
             filename = f"{BLOB_PREFIX}/{key}.json"
             
-            # Upload to Vercel Blob
+            # Upload to Vercel Blob (this 'put' is vercel_blob.put or local_blob.put based on import)
             result: PutBlobResult = await put(filename, buffer, {"access": "public"})
             
             logger.info(f"Saved blob with key '{key}' to {result.url}")
             return result.url
         except Exception as e:
-            logger.error(f"Error saving to Blob Storage: {e}")
-            raise
+            logger.error(f"Error saving blob with key '{key}' to Blob Storage: {e}", exc_info=True)
+            raise  # Re-raise the exception to be handled by the caller
 
     @staticmethod
     async def load_json(key: str) -> Dict[str, Any]:
