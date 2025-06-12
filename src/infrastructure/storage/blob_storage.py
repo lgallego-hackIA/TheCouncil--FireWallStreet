@@ -261,7 +261,7 @@ class BlobStorageAdapter:
             raise LocalSDKError(f"Unexpected error listing blobs with prefix '{prefix}': {e}")
 
     @staticmethod
-    async def save_json(key: str, data: Dict[str, Any], add_random_suffix: bool = False) -> str:
+    async def save_json(key: str, data: Dict[str, Any], add_random_suffix: bool = False, folder: str = "") -> str:
         """
         Save JSON data to Vercel Blob Storage using the local SDK.
         
@@ -291,8 +291,10 @@ class BlobStorageAdapter:
                 "Blob storage is unavailable or misconfigured. Check logs for details, "
                 f"especially VERCEL_BLOB_AVAILABLE status and import errors: {_CACHED_IMPORT_ERROR_DETAILS}"
             )
-
-        pathname = f"{BLOB_PREFIX}/{key}.json"
+        if folder:
+            pathname = f"{BLOB_PREFIX}/{folder}/{key}.json"
+        else:
+            pathname = f"{BLOB_PREFIX}/{key}.json"
         json_body_bytes = json.dumps(data).encode('utf-8')
 
         logger.info(f"Attempting to save JSON to blob: {pathname} (add_random_suffix: {add_random_suffix})")
