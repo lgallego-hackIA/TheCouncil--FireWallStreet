@@ -1,65 +1,80 @@
+<<<<<<< HEAD
+# theCouncil
+
+A dynamic FastAPI backend automation framework for rapid API development with Domain-Driven Design principles.
+
+## Overview
+
+theCouncil is a flexible API automation framework that enables rapid development of backend services without writing boilerplate code. The system uses a configuration-based approach to dynamically generate API endpoints with database integration, while supporting custom business logic through a Domain-Driven Design architecture.
+
+### Key Features
+
+- **Dynamic API Generation**: Create API endpoints through configuration rather than coding
+- **Multiple Database Support**: MongoDB, PostgreSQL, DynamoDB, Redis, Elasticsearch
+- **Domain-Driven Design**: Automatic generation of DDD-structured code for business logic
+- **Console Management API**: RESTful interface for managing automations
+- **Flexible Extension Points**: Custom handlers for business logic implementation
+
+## Setup
+
+1. Clone this repository
+   ```bash
+   git clone https://github.com/GeoPark-hackers/theCouncil
+   cd theCouncil
+   ```
+
+2. Create and activate a virtual environment
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. Install dependencies
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Run the application
+   ```bash
+   python -m src.main
+   ```
+
+## Usage
+
+### Creating Automations
+
+Create a new automation with a database connection and endpoints:
+
+```bash
+# Create a new automation with DDD structure generation
+curl -X POST "http://localhost:8000/console/automations" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "orders",
+    "description": "Order management automation",
+    "base_path": "/api/orders",
+    "version": "1.0.0",
+    "db_config": {
+      "type": "mongodb",
+      "config": {
+        "connection_string": "mongodb://localhost:27017",
+        "database": "orders_db"
+      },
+      "collection_name": "orders"
+    },
+    "generate_ddd_structure": true
+  }'
+```
+
+This will generate a complete Domain-Driven Design folder structure under `src/domain/automations/orders/` with the following components:
+
+- **Domain Layer**: Models and business logic
+- **Application Layer**: Service orchestration and use cases
+- **Infrastructure Layer**: Data access and external services
+- **Interface Layer**: API handlers and controllers
+
+Refer to the [documentation](./documents/creating_automations.md) for more details.
+=======
 # TheCouncil--FireWallStreet
-
-## GeoPark Automation System
-
-Sistema de automatización para la recopilación y análisis de datos de GeoPark, incluyendo:
-- Datos de producción y operaciones
-- Datos de mercado y capitalización
-- Precios del Brent
-- Generación automática de reportes
-
-### Estructura del Proyecto
-
-```
-theCouncil/
-├── frontend/                 # SPA React
-│   ├── src/
-│   │   ├── components/      # Componentes React
-│   │   ├── pages/          # Páginas
-│   │   ├── services/       # Servicios API
-│   │   └── utils/          # Utilidades
-│   └── package.json        # Dependencias frontend
-├── src/                    # Backend Python
-│   ├── api/               # Endpoints FastAPI
-│   ├── data_models.py     # Modelos de datos
-│   └── data_storage.py    # Almacenamiento
-├── data/                  # Datos y recursos
-└── requirements.txt       # Dependencias Python
-```
-
-### Características
-
-- Frontend moderno con React y TypeScript
-- Backend robusto con Python y FastAPI
-- Almacenamiento estructurado de datos
-- Automatización de recopilación de datos
-- Dashboard interactivo
-- Generación de reportes
-
-### Instalación
-
-1. Backend:
-```bash
-pip install -e .
-```
-
-2. Frontend:
-```bash
-cd frontend
-npm install
-```
-
-### Ejecución
-
-1. Backend:
-```bash
-python run.py
-```
-
-2. Frontend:
-```bash
-cd frontend
-npm run dev
-```
-
-El servidor estará disponible en http://localhost:5000 y el frontend en http://localhost:3000
+GeoPark - Share
+>>>>>>> bac6eb853bd7d9f8f2ab2c78e3e0044cf0cef3cd
