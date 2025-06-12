@@ -35,7 +35,7 @@ except ImportError as e_import:
 
     async def _dummy_blob_op_import_error(*args, **kwargs):
         logger.error("vercel_blob SDK is not installed or failed to import (ImportError). Blob operation cannot proceed.")
-        raise NotImplementedError(f"vercel_blob SDK not installed or failed to import: {e_import}")
+        raise NotImplementedError("vercel_blob SDK not installed or failed to import. Check logs for original ImportError details.")
 
     put = _dummy_blob_op_import_error
     get = _dummy_blob_op_import_error
@@ -46,7 +46,7 @@ except ImportError as e_import:
 
     class _DummyBlobTypeImportError:
         def __init__(self, *args, **kwargs):
-            raise NotImplementedError(f"vercel_blob SDK not installed or failed to import: {e_import}")
+            raise NotImplementedError("vercel_blob SDK not installed or failed to import. Check logs for original ImportError details.")
     
     BlobCommandOptions = _DummyBlobTypeImportError
     BlobListOptions = _DummyBlobTypeImportError
@@ -65,8 +65,8 @@ except Exception as e_general:
     VERCEL_BLOB_AVAILABLE = False
 
     async def _dummy_blob_op_general_error(*args, **kwargs):
-        logger.error(f"Unexpected error during vercel_blob setup ({type(e_general).__name__}). Blob operation cannot proceed.")
-        raise NotImplementedError(f"Unexpected error during vercel_blob setup: {e_general}")
+        logger.error(f"Unexpected error during vercel_blob setup. Blob operation cannot proceed.") # Removed type(e_general) for safety, full details in exc_info log
+        raise NotImplementedError("Unexpected error during vercel_blob setup. Check logs for original Exception details.")
 
     put = _dummy_blob_op_general_error
     get = _dummy_blob_op_general_error
@@ -77,7 +77,7 @@ except Exception as e_general:
 
     class _DummyBlobTypeGeneralError:
         def __init__(self, *args, **kwargs):
-            raise NotImplementedError(f"Unexpected error during vercel_blob setup: {e_general}")
+            raise NotImplementedError("Unexpected error during vercel_blob setup. Check logs for original Exception details.")
 
     BlobCommandOptions = _DummyBlobTypeGeneralError
     BlobListOptions = _DummyBlobTypeGeneralError
