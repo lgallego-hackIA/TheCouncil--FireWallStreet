@@ -46,13 +46,13 @@
       "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_trading_volume"
     },
     {
-      "path": "/market-cap",
+      "path": "/msrket-cap",
       "method": "GET",
       "description": "Get market capitalization for a given symbol.",
       "id": "7e9e49ef-bd81-41f0-8d52-d3b9d6e891ce",
       "summary": "Get market capitalization for a given symbol.",
       "active": true,
-      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_market_cap"
+      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_msrket_cap"
     },
     {
       "path": "/all-data",
@@ -71,31 +71,13 @@
       "summary": "Trigger the collection of all financial data.",
       "active": true,
       "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_collect"
-    },
-    {
-      "path": "/health",
-      "method": "GET",
-      "description": "Health check for the financial-data-collector automation.",
-      "id": "e4f2a3b1-1b9a-4b3c-8a7d-9f8e7d6c5b4a",
-      "summary": "Automation health check",
-      "active": true,
-      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_get_health"
-    },
-    {
-      "path": "/prepopulate",
-      "method": "POST",
-      "description": "Prepopulate historical financial data for a given symbol and date range.",
-      "id": "f8d2e5c9-3b7a-4d6c-9f1e-2a4b3c5d6e7f",
-      "summary": "Prepopulate historical financial data",
-      "active": true,
-      "handler_path": "src.interfaces.api.routers.financial_data_collector.handlers.handle_post_prepopulate"
     }
   ],
   "db_config": {
     "type": "mongodb",
     "config": {
-      "connection_string": "mongodb+srv://lgallego:jqsfcmZL5IgfeggS@clusteria.9fn928a.mongodb.net/?retryWrites=true&w=majority&appName=ClusterIA",
-      "database": "thecouncil",
+      "connection_string": "mongodb://localhost:27017/council_db",
+      "database": "council_db",
       "collection": "financial_data_collector_collection"
     }
   }

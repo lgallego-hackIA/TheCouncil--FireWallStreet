@@ -5,7 +5,7 @@ import logging
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 from .alpha_vantage_client import AlphaVantageClient # MODIFIED IMPORT
 
@@ -283,58 +283,3 @@ class FinancialDataService:
         except Exception as e:
             logger.exception(f"Error al guardar datos financieros: {str(e)}")
             return None
-
-    async def prepopulate_historical_data(self, symbol: str = "GPRK", start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Prepobla datos históricos para un símbolo y rango de fechas específico.
-        
-        Args:
-            symbol: El símbolo de la acción (por defecto: GPRK)
-            start_date: Fecha de inicio en formato YYYY-MM-DD (opcional)
-            end_date: Fecha de fin en formato YYYY-MM-DD (opcional)
-            
-        Returns:
-            Resumen de los datos históricos prepoblados
-        """
-        try:
-            logger.info(f"Prepoblando datos históricos para {symbol} desde {start_date} hasta {end_date}")
-            
-            # Obtener datos históricos
-            historical_data = await self.alpha_vantage_client.get_historical_data(symbol, start_date, end_date)
-            
-            if "Time Series (Daily)" not in historical_data:
-                logger.error(f"No se encontraron datos históricos para {symbol}")
-                return {"error": f"No se encontraron datos históricos para {symbol}"}
-            
-            time_series = historical_data["Time Series (Daily)"]
-            processed_data = []
-            
-            for date, data in time_series.items():
-                daily_data = {
-                    "symbol": symbol,
-                    "date": date,
-                    "open": data.get("1. open", "N/A"),
-                    "high": data.get("2. high", "N/A"),
-                    "low": data.get("3. low", "N/A"),
-                    "close": data.get("4. close", "N/A"),
-                    "volume": data.get("5. volume", "N/A"),
-                    "timestamp": datetime.now().isoformat(),
-                    "source": "Alpha Vantage Historical"
-                }
-                processed_data.append(daily_data)
-                await self._save_financial_data(f"historical_data_{symbol}_{date}", daily_data)
-            
-            summary = {
-                "symbol": symbol,
-                "start_date": start_date or min(time_series.keys()),
-                "end_date": end_date or max(time_series.keys()),
-                "total_records": len(processed_data),
-                "data_points": processed_data
-            }
-            
-            await self._save_financial_data(f"historical_summary_{symbol}", summary)
-            return summary
-            
-        except Exception as e:
-            logger.exception(f"Error en prepopulate_historical_data para {symbol}: {str(e)}")
-            return {"error": f"Error al prepoblar datos históricos: {str(e)}"}

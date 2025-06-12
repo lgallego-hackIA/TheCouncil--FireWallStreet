@@ -1,0 +1,185 @@
+{
+  "id": "7f8d9e0a-1b2c-3d4e-5f6g-7h8i9j0k1l2m",
+  "name": "tasks",
+  "description": "Task management API with MongoDB backend",
+  "version": "1.0.0",
+  "base_path": "/api/tasks",
+  "created_at": "2024-07-07T00:00:00.000000",
+  "updated_at": "2024-07-07T00:00:00.000000",
+  "status": "active",
+  "endpoints": [
+    {
+      "path": "/",
+      "method": "GET",
+      "summary": "List all tasks",
+      "description": "Retrieve a list of all tasks with optional filtering",
+      "parameters": [
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Filter by task status (pending, completed, in_progress)",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "description": "Maximum number of tasks to return",
+          "required": false,
+          "default": 50
+        },
+        {
+          "name": "offset",
+          "type": "integer",
+          "description": "Number of tasks to skip for pagination",
+          "required": false,
+          "default": 0
+        }
+      ],
+      "requires_auth": false,
+      "active": true,
+      "wrap_response": true,
+      "single_item": false
+    },
+    {
+      "path": "/{task_id}",
+      "method": "GET",
+      "summary": "Get a task by ID",
+      "description": "Retrieve a single task by its ID",
+      "parameters": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "description": "ID of the task to retrieve",
+          "required": true
+        }
+      ],
+      "requires_auth": false,
+      "active": true,
+      "wrap_response": false,
+      "single_item": true,
+      "id_field": "task_id"
+    },
+    {
+      "path": "/",
+      "method": "POST",
+      "summary": "Create a new task",
+      "description": "Create a new task with the provided details",
+      "parameters": [
+        {
+          "name": "title",
+          "type": "string",
+          "description": "Title of the task",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "description": "Detailed description of the task",
+          "required": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Status of the task",
+          "required": false,
+          "default": "pending"
+        },
+        {
+          "name": "due_date",
+          "type": "string",
+          "description": "Due date of the task (ISO format)",
+          "required": false
+        },
+        {
+          "name": "priority",
+          "type": "integer",
+          "description": "Priority of the task (1-5)",
+          "required": false,
+          "default": 3
+        }
+      ],
+      "requires_auth": false,
+      "active": true,
+      "wrap_response": true
+    },
+    {
+      "path": "/{task_id}",
+      "method": "PUT",
+      "summary": "Update a task",
+      "description": "Update an existing task with the provided details",
+      "parameters": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "description": "ID of the task to update",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "description": "Title of the task",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "description": "Detailed description of the task",
+          "required": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Status of the task",
+          "required": false
+        },
+        {
+          "name": "due_date",
+          "type": "string",
+          "description": "Due date of the task (ISO format)",
+          "required": false
+        },
+        {
+          "name": "priority",
+          "type": "integer",
+          "description": "Priority of the task (1-5)",
+          "required": false
+        }
+      ],
+      "requires_auth": false,
+      "active": true,
+      "wrap_response": true,
+      "id_field": "task_id"
+    },
+    {
+      "path": "/{task_id}",
+      "method": "DELETE",
+      "summary": "Delete a task",
+      "description": "Delete a task by its ID",
+      "parameters": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "description": "ID of the task to delete",
+          "required": true
+        }
+      ],
+      "requires_auth": false,
+      "active": true,
+      "wrap_response": true,
+      "id_field": "task_id"
+    }
+  ],
+  "db_config": {
+    "type": "mongodb",
+    "config": {
+      "uri": "mongodb://localhost:27017",
+      "database": "council_tasks_db"
+    },
+    "collection_name": "tasks"
+  },
+  "metadata": {
+    "creator": "theCouncil System",
+    "tags": ["tasks", "todo", "productivity"],
+    "sample": true
+  }
+}

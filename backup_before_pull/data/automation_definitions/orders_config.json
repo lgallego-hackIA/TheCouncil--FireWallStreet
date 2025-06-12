@@ -1,0 +1,28 @@
+{
+    "name": "orders",
+    "display_name": "Order Processing",
+    "description": "Manages customer orders.",
+    "endpoints": [
+        {
+            "path": "/orders",
+            "method": "POST",
+            "description": "Create a new order",
+            "handler_function_name": "handle_post_orders",
+            "status": "active"
+        },
+        {
+            "path": "/orders/{order_id}",
+            "method": "GET",
+            "description": "Get a specific order by ID",
+            "handler_function_name": "handle_get_order_by_id",
+            "status": "active"
+        },
+        {
+            "path": "/orders/{order_id}/status",
+            "method": "PUT",
+            "description": "Update the status of an order",
+            "handler_function_name": "handle_put_order_status",
+            "status": "active"
+        }
+    ]
+}

@@ -1,0 +1,52 @@
+.env
+.env.*
+!.env.production
+!.env.local
+
+# Git
+.git
+.gitignore
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Test files and cache
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+tests/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+*.bak
+
+# Logs
+logs/
+*.log
+
+# Documentation
+docs/
+documents/
+
+# Build artifacts (if any, add specific ones)
+# build/
+# dist/
+# *.egg-info/
+
+# Node modules (if you happen to have any JS/TS tooling)
+node_modules/

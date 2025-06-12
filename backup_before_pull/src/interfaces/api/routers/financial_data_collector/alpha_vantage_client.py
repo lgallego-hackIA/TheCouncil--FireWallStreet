@@ -190,48 +190,6 @@ class AlphaVantageClient:
         
         return await self._make_request(params)
     
-    async def get_historical_data(self, symbol: str = "GPRK", start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Obtiene datos históricos diarios para un símbolo.
-        
-        Args:
-            symbol: El símbolo de la acción a consultar (por defecto: GPRK)
-            start_date: Fecha de inicio en formato YYYY-MM-DD (opcional)
-            end_date: Fecha de fin en formato YYYY-MM-DD (opcional)
-            
-        Returns:
-            Datos históricos diarios
-        """
-        logger.info(f"Solicitando datos históricos para {symbol}")
-        params = {
-            "function": "TIME_SERIES_DAILY",
-            "symbol": symbol,
-            "outputsize": "full",  # Para obtener hasta 20 años de datos históricos
-            "apikey": self.api_key
-        }
-        
-        # Registrar la URL que vamos a consultar (sin la API key)
-        safe_params = params.copy()
-        safe_params["apikey"] = "XXXXX"  # Ocultar la API key en los logs
-        logger.debug(f"URL de consulta: {self.BASE_URL} con parámetros: {safe_params}")
-        
-        result = await self._make_request(params)
-        
-        # Filtrar por fechas si se proporcionaron
-        if "Time Series (Daily)" in result:
-            time_series = result["Time Series (Daily)"]
-            if start_date or end_date:
-                filtered_series = {}
-                for date, data in time_series.items():
-                    if start_date and date < start_date:
-                        continue
-                    if end_date and date > end_date:
-                        continue
-                    filtered_series[date] = data
-                result["Time Series (Daily)"] = filtered_series
-        
-        return result
-    
     async def _make_request(self, params: Dict[str, str]) -> Dict[str, Any]:
         """
         Realiza una solicitud a la API de Alpha Vantage.
