@@ -5,7 +5,7 @@ The ProgressFile class processes byte data like a file object while displaying u
 through a tqdm progress bar with enhanced visual feedback.
 '''
 
-from vercel_blob.errors import InvalidColorError
+from .errors import InvalidColorError
 
 def _hex_to_ansi(hex_color: str) -> str:
     """
