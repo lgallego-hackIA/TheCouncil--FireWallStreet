@@ -4,21 +4,17 @@ Automation Registry for managing automations.
 import logging
 import os
 import json
+import re # Added for UUID pattern matching
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
 from src.domain.automation.models import Automation, AutomationStatus
 from src.shared.exceptions import AutomationNotFoundError
-try:
-    from src.infrastructure.storage.blob_storage import BlobStorageAdapter
-    BLOB_STORAGE_AVAILABLE = True
-except ImportError:
-    logger = logging.getLogger(__name__)
-    logger.warning("Vercel Blob Storage not available. Falling back to file storage.")
-    BLOB_STORAGE_AVAILABLE = False
 
-logger = logging.getLogger(__name__)
+# BlobStorageAdapter is not used for automation definition management in this registry.
 
+logger = logging.getLogger(__name__) # Initialize logger once at the module level
 
 class AutomationRegistry:
     """
@@ -31,52 +27,95 @@ class AutomationRegistry:
     def __init__(self):
         """Initialize the automation registry."""
         self._automations: Dict[str, Automation] = {}
-        self._storage_dir = os.getenv("AUTOMATION_STORAGE_DIR", "data/automations")
+        
+        # Define the project root based on the current file's location
+        # This makes pathing reliable across different environments (local, Vercel)
+        project_root = Path(__file__).resolve().parent.parent.parent.parent
+        logger.info(f"Project root determined to be: {project_root}")
+        try:
+            project_root_contents = os.listdir(project_root)
+            logger.info(f"Contents of project root ({project_root}): {project_root_contents}")
+        except Exception as e:
+            logger.error(f"Error listing contents of project root ({project_root}): {e}")
+
+        data_dir_path = project_root / "data"
+        logger.info(f"Checking data directory: {data_dir_path}")
+        if data_dir_path.exists() and data_dir_path.is_dir():
+            try:
+                data_dir_contents = os.listdir(data_dir_path)
+                logger.info(f"Contents of data directory ({data_dir_path}): {data_dir_contents}")
+            except Exception as e:
+                logger.error(f"Error listing contents of data directory ({data_dir_path}): {e}")
+        else:
+            logger.warning(f"Data directory ({data_dir_path}) does not exist or is not a directory.")
+        default_storage_path = project_root / "data" / "automations"
+        logger.info(f"Default automation storage path defined as: {default_storage_path}")
+        if default_storage_path.exists() and default_storage_path.is_dir():
+            try:
+                automations_dir_contents = os.listdir(default_storage_path)
+                logger.info(f"Contents of default automation storage path ({default_storage_path}): {automations_dir_contents}")
+            except Exception as e:
+                logger.error(f"Error listing contents of default automation storage path ({default_storage_path}): {e}")
+        else:
+            logger.warning(f"Default automation storage path ({default_storage_path}) does not exist or is not a directory.")
+        
+        self._storage_dir = os.getenv("AUTOMATION_STORAGE_DIR", str(default_storage_path))
+        logger.info(f"Automation storage directory set to: {self._storage_dir}")
     
     async def load_automations(self) -> None:
         """
-        Load all automations from storage.
-        Uses Vercel Blob Storage when available, falls back to file storage.
+        Load all automation definitions exclusively from the local filesystem storage.
+        It filters for JSON files with UUID-like names.
         """
-        # Check if Vercel Blob Storage is available and configured
-        use_blob_storage = BLOB_STORAGE_AVAILABLE and BlobStorageAdapter.is_available()
+        logger.info(f"Starting to load automation definitions from local storage: {self._storage_dir}")
+        self._automations.clear()
+        automation_files_loaded_count = 0
+
+        if not os.path.isdir(self._storage_dir):
+            logger.warning(f"Automation storage directory {self._storage_dir} is not a valid directory. Cannot load automation definitions.")
+            logger.info(f"Finished loading automation definitions. Total registered: {len(self._automations)}")
+            return
+
+        uuid_pattern = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
         
-        if use_blob_storage:
-            # Load from Vercel Blob Storage
-            logger.info("Loading automations from Vercel Blob Storage")
-            try:
-                # List all automation keys in blob storage
-                keys = await BlobStorageAdapter.list_json_keys()
-                
-                for key in keys:
-                    try:
-                        # Load automation data from blob storage
-                        automation_data = await BlobStorageAdapter.load_json(key)
-                        automation = Automation.parse_obj(automation_data)
-                        self._automations[automation.name] = automation
-                        logger.info(f"Loaded automation from blob storage: {automation.name}")
-                    except Exception as e:
-                        logger.error(f"Error loading automation {key} from blob storage: {e}")
-            except Exception as e:
-                logger.error(f"Error listing automations from blob storage: {e}")
-        else:
-            # Fall back to file storage for local development
-            logger.info("Loading automations from file storage")
-            # Create the storage directory if it doesn't exist
-            os.makedirs(self._storage_dir, exist_ok=True)
+        for filename in os.listdir(self._storage_dir):
+            if not filename.endswith(".json"):
+                continue
+
+            base_name = filename[:-5]  # remove .json
+            if not uuid_pattern.match(base_name):
+                logger.info(f"Skipping non-UUID-named JSON file during local scan: {filename}")
+                continue
+
+            automation_id = base_name
+            file_path = os.path.join(self._storage_dir, filename)
+            automation_data: Optional[Dict[str, Any]] = None
+            loaded_from = f"local file ({file_path})"
             
+            logger.info(f"Attempting to load automation definition ID '{automation_id}' from {loaded_from}")
+
             try:
-                for filename in os.listdir(self._storage_dir):
-                    if filename.endswith(".json"):
-                        file_path = os.path.join(self._storage_dir, filename)
-                        
-                        with open(file_path, "r") as f:
-                            automation_data = json.load(f)
-                            automation = Automation.parse_obj(automation_data)
-                            self._automations[automation.name] = automation
-                            logger.info(f"Loaded automation from file: {automation.name}")
+                with open(file_path, "r") as f:
+                    automation_data = json.load(f)
+                logger.info(f"Successfully loaded data for ID '{automation_id}' from {loaded_from}.")
             except Exception as e:
-                logger.error(f"Error loading automations from file: {e}")
+                logger.error(f"Error loading or parsing ID '{automation_id}' from {file_path}: {e}", exc_info=True)
+                continue # Skip this file if loading/parsing fails
+
+            if automation_data:
+                try:
+                    automation = Automation.parse_obj(automation_data)
+                    self._automations[automation.name] = automation
+                    automation_files_loaded_count += 1
+                    logger.info(f"Successfully parsed and registered automation: {automation.name} (ID: {automation_id}) from {loaded_from}.")
+                except Exception as e:
+                    logger.error(f"Error parsing Automation object for ID '{automation_id}' from {loaded_from}: {e}. Data: {str(automation_data)[:200]}...", exc_info=True)
+            else:
+                # This case should ideally not be reached if file loading was successful but json.load returned None/empty
+                logger.warning(f"No data loaded for automation ID '{automation_id}' from {file_path}, though file was processed.")
+
+        logger.info(f"Finished loading automation definitions. Successfully loaded and registered {automation_files_loaded_count} automations. Total in registry: {len(self._automations)}.")
+
     
     async def get_all_automations(self) -> List[Automation]:
         """
@@ -136,8 +175,8 @@ class AutomationRegistry:
         
         self._automations[automation.name] = automation
         
-        # Save the automation to storage
-        await self._save_automation(automation)
+        # Save the automation to local file storage
+        await self._save_automation_to_file(automation.id, automation.dict(by_alias=True), automation.name)
         
         logger.info(f"Registered automation: {automation.name}")
         return automation
@@ -165,8 +204,8 @@ class AutomationRegistry:
         # Update the automation in the registry
         self._automations[name] = updated_automation
         
-        # Save the updated automation to storage
-        await self._save_automation(updated_automation)
+        # Save the updated automation to local file storage
+        await self._save_automation_to_file(updated_automation.id, updated_automation.dict(by_alias=True), updated_automation.name)
         
         logger.info(f"Updated automation: {name}")
         return updated_automation
@@ -174,7 +213,6 @@ class AutomationRegistry:
     async def delete_automation(self, name: str) -> bool:
         """
         Delete an automation.
-        Uses Vercel Blob Storage when available, falls back to file storage.
         
         Args:
             name: Name of the automation to delete
@@ -188,18 +226,7 @@ class AutomationRegistry:
         # Get the automation before removing it from the registry
         automation = self._automations.pop(name)
         
-        # Check if Vercel Blob Storage is available and configured
-        use_blob_storage = BLOB_STORAGE_AVAILABLE and BlobStorageAdapter.is_available()
-        
-        if use_blob_storage:
-            # Delete from Vercel Blob Storage
-            try:
-                await BlobStorageAdapter.delete_json(automation.id)
-                logger.info(f"Deleted automation {name} from blob storage")
-            except Exception as e:
-                logger.error(f"Error deleting automation from blob storage: {e}")
-        
-        # Also try to delete from file storage for completeness
+        # Exclusively delete from local file
         file_path = os.path.join(self._storage_dir, f"{automation.id}.json")
         try:
             if os.path.exists(file_path):
@@ -229,34 +256,7 @@ class AutomationRegistry:
         logger.warning(f"Automation with ID {automation_id} not found for deletion")
         return False
     
-    async def _save_automation(self, automation: Automation) -> None:
-        """
-        Save an automation to storage.
-        Uses Vercel Blob Storage when available, falls back to file storage.
-        
-        Args:
-            automation: The automation to save
-        """
-        # Check if Vercel Blob Storage is available and configured
-        use_blob_storage = BLOB_STORAGE_AVAILABLE and BlobStorageAdapter.is_available()
-        
-        # Convert automation to dict for storage
-        automation_data = automation.dict()
-        
-        if use_blob_storage:
-            # Save to Vercel Blob Storage
-            try:
-                url = await BlobStorageAdapter.save_json(automation.id, automation_data)
-                logger.info(f"Saved automation {automation.name} to blob storage: {url}")
-            except Exception as e:
-                logger.error(f"Error saving automation to blob storage: {e}")
-                # Fall back to file storage if blob storage fails
-                await self._save_automation_to_file(automation.id, automation_data)
-        else:
-            # Fall back to file storage for local development
-            await self._save_automation_to_file(automation.id, automation_data)
-    
-    async def _save_automation_to_file(self, automation_id: str, automation_data: Dict[str, Any]) -> None:
+    async def _save_automation_to_file(self, automation_id: str, automation_data: Dict[str, Any], automation_name: Optional[str] = None) -> None:
         """
         Save an automation to file storage.
         
@@ -270,7 +270,8 @@ class AutomationRegistry:
         try:
             with open(file_path, "w") as f:
                 json.dump(automation_data, f, default=str, indent=2)
-            logger.info(f"Saved automation {automation_id} to file storage")
+            log_name = automation_name if automation_name else automation_id
+            logger.info(f"Saved automation '{log_name}' (ID: {automation_id}) to local file: {file_path}")
         except Exception as e:
             logger.error(f"Error saving automation to file: {e}")
     
@@ -302,7 +303,7 @@ class AutomationRegistry:
             base_path=base_path or f"/api/{name}",  # Use provided base_path or create default
         )
         
-        # Register the automation
+        # Register and save the automation (register_automation handles saving)
         await self.register_automation(automation)
         
         return automation

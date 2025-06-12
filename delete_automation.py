@@ -69,30 +69,32 @@ def find_automation_by_name(name):
     
     return None, None
 
-def delete_automation():
+def delete_automation(name, confirm=False):
     """Delete an automation from the system."""
     print_header("theCouncil Automation Removal Tool")
-    print("This tool will remove an automation and all associated files.\n")
     
-    # Get the automation name
-    name = get_input("Automation name to remove")
+    if not confirm:
+        print("This tool will remove an automation and all associated files.\n")
     
     # Find the automation
     automation, file_path = find_automation_by_name(name)
     
     if not automation:
         print_error(f"Automation '{name}' not found!")
-        return
+        sys.exit(1)
     
     display_name = automation.get("display_name", name)
     
-    print(f"\nFound automation: {display_name}")
-    print(f"Description: {automation.get('description', 'No description')}")
-    print(f"ID: {automation.get('id', 'Unknown')}")
+    if not confirm:
+        print(f"\nFound automation: {display_name}")
+        print(f"Description: {automation.get('description', 'No description')}")
+        print(f"ID: {automation.get('id', 'Unknown')}")
     
-    if not get_input("Are you sure you want to remove this automation? (y/n)", "n").lower() in ["y", "yes"]:
-        print_warning("Removal cancelled.")
-        return
+        if not get_input("Are you sure you want to remove this automation? (y/n)", "n").lower() in ["y", "yes"]:
+            print_warning("Removal cancelled.")
+            return
+
+    print(f"\nRemoving automation: {display_name}")
     
     files_removed = []
     dirs_removed = []
@@ -151,4 +153,10 @@ def delete_automation():
     print("\nReminder: You'll need to restart your API server for changes to take effect.")
 
 if __name__ == "__main__":
-    delete_automation()
+    import argparse
+    parser = argparse.ArgumentParser(description="Remove an automation from theCouncil.")
+    parser.add_argument("--automation-name", required=True, help="The name of the automation to remove.")
+    parser.add_argument("--confirm", action="store_true", help="Confirm removal without prompting.")
+    args = parser.parse_args()
+    
+    delete_automation(name=args.automation_name, confirm=args.confirm)

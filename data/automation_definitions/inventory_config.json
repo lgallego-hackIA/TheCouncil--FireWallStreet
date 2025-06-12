@@ -1,0 +1,28 @@
+{
+    "name": "inventory",
+    "display_name": "Inventory Management",
+    "description": "Manages product inventory.",
+    "endpoints": [
+        {
+            "path": "/items",
+            "method": "GET",
+            "description": "Get all items",
+            "handler_function_name": "handle_get_items",
+            "status": "active"
+        },
+        {
+            "path": "/items/{item_id}",
+            "method": "GET",
+            "description": "Get a specific item by ID",
+            "handler_function_name": "handle_get_item_by_id",
+            "status": "active"
+        },
+        {
+            "path": "/items/{item_id}",
+            "method": "PUT",
+            "description": "Update a specific item by ID",
+            "handler_function_name": "handle_put_item_by_id",
+            "status": "active"
+        }
+    ]
+}

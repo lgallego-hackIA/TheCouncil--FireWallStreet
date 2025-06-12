@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from src.domain.automation.models import (
     Automation,
-    DatabaseConfig,
     Endpoint, 
     HttpMethod,
     ParamType,
@@ -54,7 +53,6 @@ class CreateAutomationRequest(BaseModel):
     description: str = Field(..., description="Description of the automation's purpose")
     base_path: str = Field(..., description="Base path for all endpoints (e.g., /api/v1)")
     version: str = Field("1.0.0", description="Version of the automation")
-    db_config: Optional[DatabaseConfig] = Field(None, description="Database configuration")
     endpoints: List[EndpointRequest] = Field(default=[], description="List of endpoints for this automation")
     tags: List[str] = Field(default=[], description="Tags for categorizing the automation")
     owner: str = Field("system", description="Owner of the automation")

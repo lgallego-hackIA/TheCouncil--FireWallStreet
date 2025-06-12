@@ -7,8 +7,11 @@
       "config": { "distDir": "dist" }
     },
     {
-      "src": "src/**/*.py",
-      "use": "@vercel/python"
+      "src": "src/vercel_api.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": "data/**"
+      }
     }
   ],
   "routes": [
@@ -19,6 +22,12 @@
     {
       "src": "/(.*)",
       "dest": "frontend/dist/$1"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/financial-data-collector/all-data",
+      "schedule": "30 14 * * *"
     }
   ]
 }

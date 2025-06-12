@@ -17,14 +17,6 @@ class HttpMethod(str, Enum):
     PATCH = "PATCH"
 
 
-class DatabaseType(str, Enum):
-    """Supported database types."""
-    POSTGRES = "postgres"
-    MONGODB = "mongodb"
-    REDIS = "redis"
-    ELASTICSEARCH = "elasticsearch"
-    DYNAMODB = "dynamodb"
-
 
 class AutomationStatus(str, Enum):
     """Status of an automation."""
@@ -69,14 +61,6 @@ class Endpoint(BaseModel):
     id_field: Optional[str] = "id"  # Field to use as the identifier
 
 
-class DatabaseConfig(BaseModel):
-    """Database configuration for an automation."""
-    type: DatabaseType
-    config: Dict[str, Any]
-    collection_name: Optional[str] = None  # For document databases
-    table_name: Optional[str] = None  # For relational databases
-    index_name: Optional[str] = None  # For Elasticsearch
-
 
 class Automation(BaseModel):
     """Automation configuration."""
@@ -89,7 +73,6 @@ class Automation(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now)
     status: AutomationStatus = AutomationStatus.DRAFT
     endpoints: List[Endpoint] = Field(default_factory=list)
-    db_config: Optional[DatabaseConfig] = None  # Changed from database for consistency
     metadata: Dict[str, Any] = Field(default_factory=dict)
     
     def add_endpoint(self, endpoint: Endpoint) -> None:

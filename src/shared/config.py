@@ -45,8 +45,7 @@ class Settings(BaseSettings):
 # Create settings instance
 settings = Settings()
 
-# Ensure storage directories exist
-os.makedirs(settings.AUTOMATION_STORAGE_DIR, exist_ok=True)
+# Storage directories are expected to exist as part of the deployment package.
 
 
 def get_settings() -> Settings:
