@@ -12,16 +12,9 @@ from uuid import uuid4
 from src.domain.automation.models import Automation, AutomationStatus
 from src.shared.exceptions import AutomationNotFoundError
 
+# BlobStorageAdapter is not used for automation definition management in this registry.
+
 logger = logging.getLogger(__name__) # Initialize logger once at the module level
-
-try:
-    from src.infrastructure.storage.blob_storage import BlobStorageAdapter
-    BLOB_STORAGE_AVAILABLE = True
-except ImportError:
-    logger.warning("BlobStorageAdapter import failed. Vercel Blob Storage features will be unavailable. Falling back to local file mechanisms where applicable.")
-    BLOB_STORAGE_AVAILABLE = False
-    BlobStorageAdapter = None # Ensure BlobStorageAdapter is defined for type hinting or checks, even if not usable
-
 
 class AutomationRegistry:
     """
@@ -182,8 +175,8 @@ class AutomationRegistry:
         
         self._automations[automation.name] = automation
         
-        # Save the automation to storage
-        await self._save_automation(automation)
+        # Save the automation to local file storage
+        await self._save_automation_to_file(automation.id, automation.dict(by_alias=True), automation.name)
         
         logger.info(f"Registered automation: {automation.name}")
         return automation
@@ -211,8 +204,8 @@ class AutomationRegistry:
         # Update the automation in the registry
         self._automations[name] = updated_automation
         
-        # Save the updated automation to storage
-        await self._save_automation(updated_automation)
+        # Save the updated automation to local file storage
+        await self._save_automation_to_file(updated_automation.id, updated_automation.dict(by_alias=True), updated_automation.name)
         
         logger.info(f"Updated automation: {name}")
         return updated_automation
@@ -220,7 +213,6 @@ class AutomationRegistry:
     async def delete_automation(self, name: str) -> bool:
         """
         Delete an automation.
-        Uses Vercel Blob Storage when available, falls back to file storage.
         
         Args:
             name: Name of the automation to delete
@@ -234,18 +226,7 @@ class AutomationRegistry:
         # Get the automation before removing it from the registry
         automation = self._automations.pop(name)
         
-        # Check if Vercel Blob Storage is available and configured
-        use_blob_storage = BLOB_STORAGE_AVAILABLE and BlobStorageAdapter.is_available()
-        
-        if use_blob_storage:
-            # Delete from Vercel Blob Storage
-            try:
-                await BlobStorageAdapter.delete_json(automation.id)
-                logger.info(f"Deleted automation {name} from blob storage")
-            except Exception as e:
-                logger.error(f"Error deleting automation from blob storage: {e}")
-        
-        # Also try to delete from file storage for completeness
+        # Exclusively delete from local file
         file_path = os.path.join(self._storage_dir, f"{automation.id}.json")
         try:
             if os.path.exists(file_path):
@@ -275,34 +256,7 @@ class AutomationRegistry:
         logger.warning(f"Automation with ID {automation_id} not found for deletion")
         return False
     
-    async def _save_automation(self, automation: Automation) -> None:
-        """
-        Save an automation to storage.
-        Uses Vercel Blob Storage when available, falls back to file storage.
-        
-        Args:
-            automation: The automation to save
-        """
-        # Check if Vercel Blob Storage is available and configured
-        use_blob_storage = BLOB_STORAGE_AVAILABLE and BlobStorageAdapter.is_available()
-        
-        # Convert automation to dict for storage
-        automation_data = automation.dict()
-        
-        if use_blob_storage:
-            # Save to Vercel Blob Storage
-            try:
-                url = await BlobStorageAdapter.save_json(automation.id, automation_data)
-                logger.info(f"Saved automation {automation.name} to blob storage: {url}")
-            except Exception as e:
-                logger.error(f"Error saving automation to blob storage: {e}")
-                # Fall back to file storage if blob storage fails
-                await self._save_automation_to_file(automation.id, automation_data)
-        else:
-            # Fall back to file storage for local development
-            await self._save_automation_to_file(automation.id, automation_data)
-    
-    async def _save_automation_to_file(self, automation_id: str, automation_data: Dict[str, Any]) -> None:
+    async def _save_automation_to_file(self, automation_id: str, automation_data: Dict[str, Any], automation_name: Optional[str] = None) -> None:
         """
         Save an automation to file storage.
         
@@ -316,7 +270,8 @@ class AutomationRegistry:
         try:
             with open(file_path, "w") as f:
                 json.dump(automation_data, f, default=str, indent=2)
-            logger.info(f"Saved automation {automation_id} to file storage")
+            log_name = automation_name if automation_name else automation_id
+            logger.info(f"Saved automation '{log_name}' (ID: {automation_id}) to local file: {file_path}")
         except Exception as e:
             logger.error(f"Error saving automation to file: {e}")
     
@@ -348,7 +303,7 @@ class AutomationRegistry:
             base_path=base_path or f"/api/{name}",  # Use provided base_path or create default
         )
         
-        # Register the automation
+        # Register and save the automation (register_automation handles saving)
         await self.register_automation(automation)
         
         return automation
