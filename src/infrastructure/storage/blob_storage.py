@@ -30,8 +30,14 @@ try:
     VERCEL_BLOB_AVAILABLE = True
     logger.info("vercel_blob SDK imported successfully and all components assigned.")
 except ImportError as e_import:
-    logger.error(f"vercel_blob SDK import failed. Error: {e_import}", exc_info=True)
-    VERCEL_BLOB_AVAILABLE = False
+    logger.error(f"!!! CAPTURED ImportError (exc_info=True): {e_import} !!!", exc_info=True)
+    # Also print to stderr, Vercel might pick this up more readily for crashes
+    import sys as _sys_for_print # Use a unique alias
+    print(f"!!! CAPTURED ImportError (printed to stderr): {e_import} !!!", file=_sys_for_print.stderr)
+    _sys_for_print.stderr.flush() # Attempt to force flush stderr
+    # For now, let's re-raise to make sure Vercel shows the crash with this specific error
+    raise e_import # This will stop execution here if import fails
+    # VERCEL_BLOB_AVAILABLE = False # This line and subsequent dummy setup will not be reached if e_import is raised.
 
     async def _dummy_blob_op_import_error(*args, **kwargs):
         logger.error("vercel_blob SDK is not installed or failed to import (ImportError). Blob operation cannot proceed.")
