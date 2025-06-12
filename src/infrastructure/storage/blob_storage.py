@@ -16,7 +16,7 @@ import os
 
 VERCEL_BLOB_AVAILABLE = False
 # Initialize all names that would be imported from vercel_blob
-put, list_blobs, delete, head, copy = (None,) * 5
+put, get, list_blobs, del_blob, head, copy = (None,) * 6
 BlobCommandOptions, BlobListOptions, BlobListResponse, BlobListResult, BlobPutOptions = (None,) * 5
 DelBlobResult, HeadBlobResult, ListBlobResult, PutBlobResult = (None,) * 4
 BlobNotFoundError, ListingResponse = (None,) * 2
