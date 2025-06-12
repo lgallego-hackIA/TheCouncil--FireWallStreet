@@ -9,7 +9,9 @@ print("BLOB_STORAGE.PY: TOP LEVEL EXECUTION STARTED", file=sys.stderr)
 sys.stderr.flush()
 import os
 import json
+import httpx
 import logging
+import asyncio
 from typing import Dict, Any, List, Optional
 import base64
 from datetime import timedelta
@@ -21,98 +23,100 @@ import os
 
 VERCEL_BLOB_AVAILABLE = False
 # Initialize all names that would be imported from vercel_blob
-put, get, list_blobs, del_blob, head, copy = (None,) * 6
-BlobCommandOptions, BlobListOptions, BlobListResponse, BlobListResult, BlobPutOptions = (None,) * 5
-DelBlobResult, HeadBlobResult, ListBlobResult, PutBlobResult = (None,) * 4
-BlobNotFoundError, ListingResponse = (None,) * 2
+put, head, copy = (None,) * 3 # SDK functions imported directly
+# del and list will be imported directly and then aliased
+delete_blob_sdk, list_blobs_sdk = None, None # Aliases to be assigned after import
+# Actual SDK functions will be imported as 'list' and 'del', then aliased or used directly.
+# For clarity in our module, we'll use list_blobs_sdk and delete_blob_sdk internally for the SDK functions.
+# Initial state for SDK components
+local_sdk_put = None
+local_sdk_head = None
+local_sdk_delete = None
+local_sdk_list = None
+local_sdk_copy = None
+local_sdk_download_file = None # From the local blob_store.py
+
+# Custom error types from the local SDK (to be imported)
+LocalBlobConfigError = None
+LocalBlobRequestError = None
+LocalBlobFileError = None
 
 _CACHED_IMPORT_ERROR_DETAILS = "No ImportError occurred or details not captured."
+VERCEL_BLOB_AVAILABLE = False
 
 # CRITICAL DEBUG PRINT 2
-print("BLOB_STORAGE.PY: ATTEMPTING VERCEL_BLOB IMPORT BLOCK", file=sys.stderr)
+print("BLOB_STORAGE.PY: ATTEMPTING LOCAL VERCEL_BLOB SDK IMPORT BLOCK", file=sys.stderr)
 sys.stderr.flush()
+
 try:
-    logger.info(f"Attempting to import vercel_blob. Python version: {sys.version}")
-    logger.info(f"PYTHONPATH: {os.environ.get('PYTHONPATH')}")
-    logger.info(f"sys.path: {sys.path}")
-    from vercel_blob import (
-        put, get, list_blobs, del_blob, head, copy,
-        BlobCommandOptions, BlobListOptions, BlobListResponse, BlobListResult, BlobPutOptions,
-        DelBlobResult, HeadBlobResult, ListBlobResult, PutBlobResult,
-        BlobNotFoundError, ListingResponse
+    from src.infrastructure.database.vercel_blob import blob_store
+    from src.infrastructure.database.vercel_blob.errors import (
+        BlobConfigError as LocalBlobConfigError,
+        BlobRequestError as LocalBlobRequestError,
+        BlobFileError as LocalBlobFileError
     )
-    logger.info("Successfully attempted to import all expected components from vercel_blob SDK.")
+
+    local_sdk_put = blob_store.put
+    local_sdk_head = blob_store.head
+    local_sdk_delete = blob_store.delete
+    local_sdk_list = blob_store.list
+    local_sdk_copy = blob_store.copy
+    local_sdk_download_file = blob_store.download_file
+
+    if not all(callable(f) for f in [local_sdk_put, local_sdk_head, local_sdk_delete, local_sdk_list, local_sdk_copy, local_sdk_download_file]):
+        raise ImportError("One or more essential functions from local blob_store are not callable.")
+
+    logger.info("Successfully imported local Vercel Blob SDK (src.infrastructure.database.vercel_blob).")
     VERCEL_BLOB_AVAILABLE = True
-    logger.info("vercel_blob SDK imported successfully and all components assigned.")
+
 except ImportError as e_import:
     _CACHED_IMPORT_ERROR_DETAILS = traceback.format_exc()
-    # Now print, after details are captured
-    print(f"BLOB_STORAGE.PY: CAUGHT IMPORT_ERROR: {str(e_import)}. Details captured:\n{_CACHED_IMPORT_ERROR_DETAILS}", file=sys.stderr)
-    sys.stderr.flush()
-    VERCEL_BLOB_AVAILABLE = False # Ensure this is set
-    # DO NOT re-raise e_import here. Allow module to load with dummies.
-    # The dummy assignments for ImportError case will follow.
-
-    async def _dummy_blob_op_import_error(*args, **kwargs):
-        logger.error("vercel_blob SDK is not installed or failed to import (ImportError). Blob operation cannot proceed.")
-        raise NotImplementedError("vercel_blob SDK not installed or failed to import. Check logs for original ImportError details.")
-
-    put = _dummy_blob_op_import_error
-    get = _dummy_blob_op_import_error
-    list_blobs = _dummy_blob_op_import_error
-    del_blob = _dummy_blob_op_import_error
-    head = _dummy_blob_op_import_error
-    copy = _dummy_blob_op_import_error
-
-    class _DummyBlobTypeImportError:
-        def __init__(self, *args, **kwargs):
-            raise NotImplementedError("vercel_blob SDK not installed or failed to import. Check logs for original ImportError details.")
-    
-    BlobCommandOptions = _DummyBlobTypeImportError
-    BlobListOptions = _DummyBlobTypeImportError
-    BlobListResponse = _DummyBlobTypeImportError
-    BlobListResult = _DummyBlobTypeImportError
-    BlobPutOptions = _DummyBlobTypeImportError
-    DelBlobResult = _DummyBlobTypeImportError
-    HeadBlobResult = _DummyBlobTypeImportError
-    ListBlobResult = _DummyBlobTypeImportError
-    PutBlobResult = _DummyBlobTypeImportError
-    BlobNotFoundError = _DummyBlobTypeImportError
-    ListingResponse = _DummyBlobTypeImportError
-
-except Exception as e_general:
-    print(f"BLOB_STORAGE.PY: CAUGHT GENERAL_EXCEPTION: {str(e_general)}", file=sys.stderr)
-    import traceback
-    traceback.print_exc(file=sys.stderr)
+    print(f"BLOB_STORAGE.PY: CAUGHT IMPORT_ERROR importing local SDK: {str(e_import)}. Details captured:\n{_CACHED_IMPORT_ERROR_DETAILS}", file=sys.stderr)
     sys.stderr.flush()
     VERCEL_BLOB_AVAILABLE = False
+    LocalBlobConfigError = Exception
+    LocalBlobRequestError = Exception
+    LocalBlobFileError = Exception
 
-    async def _dummy_blob_op_general_error(*args, **kwargs):
-        logger.error(f"Unexpected error during vercel_blob setup. Blob operation cannot proceed.") # Removed type(e_general) for safety, full details in exc_info log
-        raise NotImplementedError("Unexpected error during vercel_blob setup. Check logs for original Exception details.")
+except Exception as e_general:
+    _CACHED_IMPORT_ERROR_DETAILS = traceback.format_exc()
+    print(f"BLOB_STORAGE.PY: CAUGHT GENERAL_EXCEPTION during local SDK import: {str(e_general)}. Details:\n{_CACHED_IMPORT_ERROR_DETAILS}", file=sys.stderr)
+    sys.stderr.flush()
+    VERCEL_BLOB_AVAILABLE = False
+    LocalBlobConfigError = Exception
+    LocalBlobRequestError = Exception
+    LocalBlobFileError = Exception
 
-    put = _dummy_blob_op_general_error
-    get = _dummy_blob_op_general_error
-    list_blobs = _dummy_blob_op_general_error
-    del_blob = _dummy_blob_op_general_error
-    head = _dummy_blob_op_general_error
-    copy = _dummy_blob_op_general_error
+if not VERCEL_BLOB_AVAILABLE:
+    # Define a synchronous dummy for consistency with the local SDK's nature
+    def _dummy_local_sdk_op_sync(*args, **kwargs):
+        logger.error(f"Local Vercel Blob SDK is not available. Operation cannot proceed. Import error details: {_CACHED_IMPORT_ERROR_DETAILS}")
+        raise NotImplementedError(f"Local Vercel Blob SDK not available. Check logs. Details: {_CACHED_IMPORT_ERROR_DETAILS}")
 
-    class _DummyBlobTypeGeneralError:
-        def __init__(self, *args, **kwargs):
-            raise NotImplementedError("Unexpected error during vercel_blob setup. Check logs for original Exception details.")
+    local_sdk_put = _dummy_local_sdk_op_sync
+    local_sdk_head = _dummy_local_sdk_op_sync
+    local_sdk_delete = _dummy_local_sdk_op_sync
+    local_sdk_list = _dummy_local_sdk_op_sync
+    local_sdk_copy = _dummy_local_sdk_op_sync
+    local_sdk_download_file = _dummy_local_sdk_op_sync
 
-    BlobCommandOptions = _DummyBlobTypeGeneralError
-    BlobListOptions = _DummyBlobTypeGeneralError
-    BlobListResponse = _DummyBlobTypeGeneralError
-    BlobListResult = _DummyBlobTypeGeneralError
-    BlobPutOptions = _DummyBlobTypeGeneralError
-    DelBlobResult = _DummyBlobTypeGeneralError
-    HeadBlobResult = _DummyBlobTypeGeneralError
-    ListBlobResult = _DummyBlobTypeGeneralError
-    PutBlobResult = _DummyBlobTypeGeneralError
-    BlobNotFoundError = _DummyBlobTypeGeneralError
-    ListingResponse = _DummyBlobTypeGeneralError
+    if LocalBlobConfigError is None: LocalBlobConfigError = Exception
+    if LocalBlobRequestError is None: LocalBlobRequestError = Exception
+    if LocalBlobFileError is None: LocalBlobFileError = Exception
+
+class LocalSDKError(Exception):
+    """Base class for errors originating from the local Vercel Blob SDK wrapper."""
+    pass
+
+if LocalBlobRequestError and not issubclass(LocalBlobRequestError, LocalSDKError) and LocalBlobRequestError is not Exception:
+    class WrappedLocalBlobRequestError(LocalSDKError, LocalBlobRequestError): pass
+    LocalBlobRequestError = WrappedLocalBlobRequestError
+elif LocalBlobRequestError is Exception:
+    class GenericLocalBlobRequestError(LocalSDKError): pass
+    LocalBlobRequestError = GenericLocalBlobRequestError
+
+# Base URL for constructing direct blob URLs for local SDK head/delete operations
+VERCEL_BLOB_API_BASE_URL = "https://blob.vercel-storage.com"
 
 # CRITICAL DEBUG PRINT 5
 if VERCEL_BLOB_AVAILABLE:
@@ -133,192 +137,409 @@ class BlobStorageAdapter:
 
     @staticmethod
     def is_available() -> bool:
-        print("BLOB_STORAGE.PY: BlobStorageAdapter.is_available() CALLED", file=sys.stderr)
-        sys.stderr.flush()
-
+        """Check if the Vercel Blob Storage (local SDK version) is available and configured."""
         if not VERCEL_BLOB_AVAILABLE:
-            error_message = (
-                "Vercel Blob Storage SDK (vercel_blob) failed to import or initialize correctly. "
-                f"Cached ImportError details:\n{_CACHED_IMPORT_ERROR_DETAILS}"
+            logger.warning(
+                "BlobStorageAdapter: VERCEL_BLOB_AVAILABLE is False. Local SDK import likely failed. "
+                f"Cached import error details: {_CACHED_IMPORT_ERROR_DETAILS}"
             )
-            logger.error(error_message)
-            print(f"BLOB_STORAGE.PY: is_available() - VERCEL_BLOB_AVAILABLE is False. {error_message}", file=sys.stderr)
+            print(
+                "BLOB_STORAGE.PY: is_available() - VERCEL_BLOB_AVAILABLE is False. Local SDK import failed.",
+                file=sys.stderr
+            )
             sys.stderr.flush()
             return False
 
         if not BLOB_READ_WRITE_TOKEN:
-            logger.info("BLOB_READ_WRITE_TOKEN is not set. BlobStorageAdapter reports as unavailable.")
+            logger.info("BlobStorageAdapter: BLOB_READ_WRITE_TOKEN is not set. Reports as unavailable.")
             print("BLOB_STORAGE.PY: is_available() - BLOB_READ_WRITE_TOKEN is not set.", file=sys.stderr)
             sys.stderr.flush()
             return False
         
-        # Check if essential components are assigned and not dummies
-        # Assuming _dummy_blob_op_import_error is the one assigned on ImportError
-        # and _dummy_blob_op_general_error for other errors.
-        # We need to check against the actual function objects if possible, or by name if they are unique.
-        # For simplicity, checking for None which is the initial state before any assignment.
-        # And also checking against the known dummy function if VERCEL_BLOB_AVAILABLE was true but then components were bad.
-        
-        # A more robust check would be to see if they are the dummy functions.
-        # This requires the dummy functions to be defined in a scope accessible here or passed.
-        # For now, let's assume if VERCEL_BLOB_AVAILABLE is True, the components should be the real ones.
-        # The primary failure mode we're debugging is VERCEL_BLOB_AVAILABLE becoming False due to ImportError.
-
-        # Let's refine the check for actual components being usable
-        # This part of the check is more relevant if VERCEL_BLOB_AVAILABLE was true, but something else went wrong.
-        # However, the main goal now is to see the ImportError details if VERCEL_BLOB_AVAILABLE is false.
-        
-        # We can add a check for key components not being None if VERCEL_BLOB_AVAILABLE is True
-        # This is a secondary check after the VERCEL_BLOB_AVAILABLE and TOKEN checks.
-        essential_components = {
-            "put": put,
-            "get": get,
-            "list_blobs": list_blobs,
-            "del_blob": del_blob,
-            "head": head,
-            "copy": copy,
-            "PutBlobResult": PutBlobResult,
-            "BlobNotFoundError": BlobNotFoundError
+        essential_sdk_functions = {
+            "put": local_sdk_put,
+            "head": local_sdk_head,
+            "delete": local_sdk_delete,
+            "list": local_sdk_list,
+            "copy": local_sdk_copy,
+            "download_file": local_sdk_download_file,
         }
-        missing_sdk_parts = [name for name, comp in essential_components.items() if comp is None or comp.__name__.startswith('_dummy_blob_op')]
+        
+        non_functional_components = [
+            name for name, func in essential_sdk_functions.items() 
+            if func is None or (hasattr(func, '__name__') and func.__name__ == '_dummy_local_sdk_op_sync')
+        ]
 
-        if missing_sdk_parts:
-            logger.error(f"BlobStorageAdapter: VERCEL_BLOB_AVAILABLE is True and Token is set, but essential SDK components are missing or dummies: {missing_sdk_parts}")
-            print(f"BLOB_STORAGE.PY: is_available() - Essential SDK components missing/dummies: {missing_sdk_parts}", file=sys.stderr)
+        if non_functional_components:
+            logger.error(
+                f"BlobStorageAdapter: Local SDK is marked VERCEL_BLOB_AVAILABLE and Token is set, "
+                f"but essential functions are missing or dummies: {non_functional_components}. "
+                f"Import error details: {_CACHED_IMPORT_ERROR_DETAILS}"
+            )
+            print(
+                f"BLOB_STORAGE.PY: is_available() - Essential local SDK functions missing/dummies: {non_functional_components}",
+                file=sys.stderr
+            )
             sys.stderr.flush()
             return False
 
-        logger.debug("VERCEL_BLOB_AVAILABLE is True, Token is set, and essential components seem okay. BlobStorageAdapter reports as available.")
+        logger.debug("BlobStorageAdapter: Local SDK (VERCEL_BLOB_AVAILABLE=True), Token set, and essential functions seem okay. Reports as available.")
         return True
         
     @staticmethod
-    async def list_blobs(prefix: str = "") -> List[str]:
-        """List all blobs with the given prefix.
+    async def list_blobs(prefix: str = "", limit: Optional[int] = None, cursor: Optional[str] = None) -> Dict[str, Any]:
+        """
+        List blobs from Vercel Blob Storage using the local SDK.
         
         Args:
-            prefix: Prefix to filter blobs by
+            prefix: Prefix to filter blobs by.
+            limit: Maximum number of blobs to return.
+            cursor: Cursor for pagination.
             
         Returns:
-            List[str]: List of blob paths
-        """
-        try:
-            # Default prefix is automations/
-            if not prefix.startswith("automations/") and not prefix.startswith("openapi/"):
-                full_prefix = f"automations/{prefix}"
-            else:
-                full_prefix = prefix
-                
-            # List blobs with the prefix
-            result = await list_blobs({"prefix": full_prefix})
-            
-            # Extract paths
-            paths = [blob.pathname for blob in result.blobs]
-            
-            logger.info(f"Listed {len(paths)} blobs with prefix '{full_prefix}'")
-            return paths
-        except Exception as e:
-            logger.error(f"Error listing blobs with prefix '{prefix}': {e}")
-            return []
-
-    @staticmethod
-    async def save_json(key: str, data: Dict[str, Any]) -> str:
-        """
-        Save JSON data to Vercel Blob Storage.
+            Dict[str, Any]: A dictionary containing 'blobs' (list of dicts, each with blob details),
+                            'cursor' (str, for pagination), and 'hasMore' (bool).
+                            Returns an empty dict with empty blobs list on error.
         
-        Args:
-            key: The key for the blob (used in the filename)
-            data: The data to save
-            
-        Returns:
-            str: The URL of the saved blob
-            
         Raises:
-            RuntimeError: If in mock mode on Vercel, indicating misconfiguration.
-            Exception: If any other error occurs during saving.
+            RuntimeError: If blob storage is unavailable or misconfigured.
+            LocalBlobRequestError: For API errors during the list operation.
         """
         if not BlobStorageAdapter.is_available():
-            logger.warning(
-                f"BlobStorageAdapter.is_available() returned False for key '{key}'. "
-                f"If on Vercel, this is unexpected. Token set: {bool(BLOB_READ_WRITE_TOKEN)}. "
-                f"Proceeding with configured 'put' operation (might be local_blob.put)."
+            logger.error(
+                f"BlobStorageAdapter.is_available() returned False. Cannot list blobs for prefix '{prefix}'. "
+                f"Import error details: {_CACHED_IMPORT_ERROR_DETAILS}"
+            )
+            raise RuntimeError(
+                "Blob storage is unavailable or misconfigured. Check logs for details, "
+                f"especially VERCEL_BLOB_AVAILABLE status and import errors: {_CACHED_IMPORT_ERROR_DETAILS}"
             )
 
+        # The local SDK's list function handles its own default prefixing (e.g., within "automations/")
+        # if the provided prefix is empty or doesn't conform to its expected structure.
+        # We pass the user-provided prefix directly; if it's empty, the SDK uses its default.
+        logger.info(f"Attempting to list blobs with prefix: '{prefix}' (limit: {limit}, cursor: {cursor}) using local SDK.")
+
         try:
-            # Convert data to JSON string
-            json_data = json.dumps(data, default=str, indent=2)
+            loop = asyncio.get_running_loop()
+            response_dict = await loop.run_in_executor(
+                None,
+                local_sdk_list,
+                prefix if prefix else None, # Pass None if prefix is empty, SDK handles default
+                limit,
+                'all', # mode ('all' or 'folded')
+                cursor,
+                BLOB_READ_WRITE_TOKEN
+            )
+
+            if not isinstance(response_dict, dict) or 'blobs' not in response_dict:
+                logger.error(f"Unexpected response format from local_sdk_list for prefix '{prefix}': {response_dict}")
+                return {'blobs': [], 'cursor': None, 'hasMore': False}
             
-            # Create a buffer from the JSON string
-            buffer = json_data.encode('utf-8')
-            
-            # Use the key as the filename with .json extension
-            filename = f"{BLOB_PREFIX}/{key}.json"
-            
-            # Upload to Vercel Blob (this 'put' is vercel_blob.put or local_blob.put based on import)
-            result: PutBlobResult = await put(filename, buffer, {"access": "public"})
-            
-            logger.info(f"Saved blob with key '{key}' to {result.url}")
-            return result.url
+            blobs_list = response_dict.get('blobs', [])
+            if not isinstance(blobs_list, list):
+                logger.warning(f"local_sdk_list returned 'blobs' not as a list for prefix '{prefix}'. Got: {type(blobs_list)}. Correcting to empty list.")
+                blobs_list = []
+
+            logger.info(f"Successfully listed {len(blobs_list)} blobs for prefix '{prefix}'. Has more: {response_dict.get('hasMore')}")
+            return {
+                'blobs': blobs_list, 
+                'cursor': response_dict.get('cursor'),
+                'hasMore': response_dict.get('hasMore', False)
+            }
+
+        except LocalBlobRequestError as e:
+            logger.error(f"Local SDK API request error listing blobs with prefix '{prefix}': {e}", exc_info=True)
+            raise
+        except LocalBlobConfigError as e:
+            logger.error(f"Local SDK configuration error listing blobs with prefix '{prefix}': {e}", exc_info=True)
+            raise
         except Exception as e:
-            logger.error(f"Error saving blob with key '{key}' to Blob Storage: {e}", exc_info=True)
-            raise  # Re-raise the exception to be handled by the caller
+            logger.error(f"Unexpected error listing blobs with prefix '{prefix}': {e}", exc_info=True)
+            if isinstance(e, (LocalBlobRequestError, LocalBlobConfigError, LocalSDKError)):
+                 raise
+            raise LocalSDKError(f"Unexpected error listing blobs with prefix '{prefix}': {e}")
+
+    @staticmethod
+    async def save_json(key: str, data: Dict[str, Any], add_random_suffix: bool = False) -> str:
+        """
+        Save JSON data to Vercel Blob Storage using the local SDK.
+        
+        Args:
+            key: The key for the blob (used in the filename, without .json extension).
+            data: The data to save.
+            add_random_suffix: Whether to add a random suffix to the blob name (defaults to False).
+            
+        Returns:
+            str: The URL of the saved blob.
+            
+        Raises:
+            RuntimeError: If blob storage is unavailable or misconfigured.
+            LocalBlobRequestError: For API errors during the put operation.
+            LocalBlobConfigError: For configuration errors with the local SDK.
+            LocalBlobFileError: For file-related errors (less likely for put).
+            Exception: For any other unexpected errors.
+        """
+        if not BlobStorageAdapter.is_available():
+            logger.error(
+                f"BlobStorageAdapter.is_available() returned False. Cannot save JSON for key '{key}'. "
+                f"Token set: {bool(BLOB_READ_WRITE_TOKEN)}. "
+                f"VERCEL_BLOB_AVAILABLE: {VERCEL_BLOB_AVAILABLE}. "
+                f"Import error details: {_CACHED_IMPORT_ERROR_DETAILS}"
+            )
+            raise RuntimeError(
+                "Blob storage is unavailable or misconfigured. Check logs for details, "
+                f"especially VERCEL_BLOB_AVAILABLE status and import errors: {_CACHED_IMPORT_ERROR_DETAILS}"
+            )
+
+        pathname = f"{BLOB_PREFIX}/{key}.json"
+        json_body_bytes = json.dumps(data).encode('utf-8')
+
+        logger.info(f"Attempting to save JSON to blob: {pathname} (add_random_suffix: {add_random_suffix})")
+
+        try:
+            loop = asyncio.get_running_loop()
+            response_dict = await loop.run_in_executor(
+                None,
+                local_sdk_put,
+                pathname,
+                json_body_bytes,
+                add_random_suffix,
+                'public', # access
+                'application/json', # content_type
+                None, # cache_control_max_age
+                BLOB_READ_WRITE_TOKEN # token
+            )
+            
+            if not isinstance(response_dict, dict) or 'url' not in response_dict:
+                logger.error(f"Unexpected response format from local_sdk_put for {pathname}: {response_dict}")
+                raise LocalSDKError(f"Unexpected response format from local_sdk_put for {pathname}. Expected dict with 'url'.")
+
+            blob_url = response_dict['url']
+            logger.info(f"Successfully saved JSON to blob: {pathname}, URL: {blob_url}")
+            return blob_url
+
+        except LocalBlobRequestError as e:
+            logger.error(f"Local SDK API request error saving JSON to {pathname}: {e}", exc_info=True)
+            raise
+        except LocalBlobConfigError as e:
+            logger.error(f"Local SDK configuration error saving JSON to {pathname}: {e}", exc_info=True)
+            raise
+        except LocalBlobFileError as e:
+            logger.error(f"Local SDK file error saving JSON to {pathname}: {e}", exc_info=True)
+            raise
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding response from local_sdk_put for {pathname}: {e}", exc_info=True)
+            raise LocalSDKError(f"Error decoding response from local_sdk_put for {pathname}: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error saving JSON to {pathname}: {e}", exc_info=True)
+            if isinstance(e, (LocalBlobRequestError, LocalBlobConfigError, LocalBlobFileError, LocalSDKError)):
+                 raise
+            raise LocalSDKError(f"Unexpected error saving JSON to {pathname}: {e}")
 
     @staticmethod
     async def load_json(key: str) -> Dict[str, Any]:
         """
-        Load JSON data from Vercel Blob Storage.
+        Load JSON data from Vercel Blob Storage using the local SDK.
         
         Args:
-            key: The key for the blob (used in the filename)
+            key: The key for the blob (filename without .json extension, relative to BLOB_PREFIX).
             
         Returns:
             Dict[str, Any]: The loaded JSON data
             
         Raises:
-            FileNotFoundError: If the blob is not found
+            FileNotFoundError: If the blob is not found.
+            RuntimeError: If there's an issue fetching or parsing the blob.
+            LocalBlobRequestError: For API errors.
         """
+        if not BlobStorageAdapter.is_available():
+            logger.error(
+                f"BlobStorageAdapter.is_available() returned False. Cannot load JSON for key '{key}'. "
+                f"Import error details: {_CACHED_IMPORT_ERROR_DETAILS}"
+            )
+            raise RuntimeError(f"Blob storage is unavailable, cannot load key '{key}'. Check logs. Details: {_CACHED_IMPORT_ERROR_DETAILS}")
+
+        pathname = f"{BLOB_PREFIX}/{key}.json"
+        full_api_url = f"{VERCEL_BLOB_API_BASE_URL}/{pathname}"
+        download_url = None
+
+        logger.debug(f"Attempting to get metadata for blob via local SDK head: {full_api_url}")
+
         try:
-            # Use the key as the filename with .json extension
-            filename = f"{BLOB_PREFIX}/{key}.json"
-            
-            # Download from Vercel Blob
-            blob = await get(filename)
-            
-            if not blob:
-                raise FileNotFoundError(f"Blob with key '{key}' not found")
-            
-            # Parse JSON from blob
-            json_data = await blob.text()
-            return json.loads(json_data)
-        except BlobNotFoundError:
-            logger.error(f"Blob with key '{key}' not found")
-            raise FileNotFoundError(f"Blob with key '{key}' not found")
-        except Exception as e:
-            logger.error(f"Error loading from Blob Storage: {e}")
+            loop = asyncio.get_running_loop()
+            head_response_headers = await loop.run_in_executor(
+                None,
+                local_sdk_head,
+                full_api_url,
+                BLOB_READ_WRITE_TOKEN
+            )
+
+            if not isinstance(head_response_headers, dict):
+                logger.warning(f"Blob metadata (headers) not found or not a dict for key '{key}' (URL: {full_api_url}). Head response: {head_response_headers}")
+                raise FileNotFoundError(f"Blob with key '{key}' not found (invalid head response). URL: {full_api_url}")
+
+            download_url = head_response_headers.get('x-download-url')
+            if not download_url:
+                logger.warning(f"No 'x-download-url' in head response headers for {full_api_url}. Headers: {head_response_headers}")
+                raise FileNotFoundError(f"Blob with key '{key}' not found or no download URL available via head. URL: {full_api_url}")
+
+            logger.debug(f"Successfully fetched metadata for {pathname}. Download URL from 'x-download-url': {download_url}")
+
+            async with httpx.AsyncClient() as client:
+                logger.debug(f"Attempting to download blob content from: {download_url}")
+                response = await client.get(download_url)
+                response.raise_for_status()
+                loaded_data = response.json()
+                logger.info(f"Successfully loaded and parsed JSON blob with key '{key}' from {download_url}")
+                return loaded_data
+
+        except LocalBlobRequestError as e:
+            error_str = str(e).lower()
+            if "404" in error_str or "not_found" in error_str or "no such file" in error_str:
+                logger.warning(f"Blob not found via local_sdk_head for key '{key}' (URL: {full_api_url}): {e}")
+                raise FileNotFoundError(f"Blob with key '{key}' not found. URL: {full_api_url}") from e
+            logger.error(f"Local SDK API request error loading JSON for key '{key}' (URL: {full_api_url}): {e}", exc_info=True)
             raise
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error when downloading blob for key '{key}' from {download_url}: {e.response.status_code} - {e.response.text}", exc_info=True)
+            if e.response.status_code == 404:
+                 raise FileNotFoundError(f"Blob content not found at download URL for key '{key}'. URL: {download_url}") from e
+            raise RuntimeError(f"Failed to download blob for key '{key}' due to HTTP error: {e.response.status_code}") from e
+        except httpx.RequestError as e:
+            logger.error(f"Network error when downloading blob for key '{key}' from {download_url}: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to download blob for key '{key}' due to network error.") from e
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding JSON from blob for key '{key}'. Download URL: {download_url}. Error: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to parse JSON from blob for key '{key}'.") from e
+        except FileNotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error loading JSON for key '{key}' (URL: {full_api_url}): {e}", exc_info=True)
+            if isinstance(e, (LocalBlobRequestError, LocalBlobConfigError, LocalBlobFileError, LocalSDKError, RuntimeError)):
+                 raise
+            raise LocalSDKError(f"Unexpected error loading JSON for key '{key}': {e}") from e
 
     @staticmethod
     async def delete_json(key: str) -> bool:
         """
-        Delete JSON data from Vercel Blob Storage.
+        Delete JSON data from Vercel Blob Storage using the local SDK.
         
         Args:
-            key: The key for the blob (used in the filename)
+            key: The key for the blob (filename without .json extension, relative to BLOB_PREFIX).
             
         Returns:
-            bool: True if the blob was deleted, False otherwise
+            bool: True if the blob was deleted or not found, False on error.
         """
+        if not BlobStorageAdapter.is_available():
+            logger.error(
+                f"BlobStorageAdapter.is_available() returned False. Cannot delete JSON for key '{key}'. "
+                f"Import error details: {_CACHED_IMPORT_ERROR_DETAILS}"
+            )
+            return False 
+
+        pathname = f"{BLOB_PREFIX}/{key}.json"
+        full_api_url = f"{VERCEL_BLOB_API_BASE_URL}/{pathname}"
+        
+        logger.debug(f"Attempting to delete blob via local SDK: {full_api_url}")
+
         try:
-            # Use the key as the filename with .json extension
-            filename = f"{BLOB_PREFIX}/{key}.json"
-            
-            # Delete from Vercel Blob
-            await del_blob(filename)
-            
-            logger.info(f"Deleted blob with key '{key}'")
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None,
+                local_sdk_delete,
+                [full_api_url],
+                BLOB_READ_WRITE_TOKEN
+            )
+            logger.info(f"Successfully initiated deletion for blob with key '{key}' (URL: {full_api_url})")
             return True
-        except BlobNotFoundError:
-            logger.warning(f"Blob with key '{key}' not found for deletion")
+        except LocalBlobRequestError as e:
+            error_str = str(e).lower()
+            if "404" in error_str or "not_found" in error_str or "no such file" in error_str:
+                logger.warning(f"Blob not found during deletion attempt for key '{key}' (URL: {full_api_url}), considering as success: {e}")
+                return True
+            logger.error(f"Local SDK API request error deleting JSON for key '{key}' (URL: {full_api_url}): {e}", exc_info=True)
             return False
         except Exception as e:
-            logger.error(f"Error deleting from Blob Storage: {e}")
+            logger.error(f"Unexpected error deleting JSON for key '{key}' (URL: {full_api_url}): {e}", exc_info=True)
             return False
+
+    @staticmethod
+    async def download_blob(key: str) -> bytes:
+        """
+        Download raw blob data from Vercel Blob Storage using the local SDK.
+        
+        Args:
+            key: The key for the blob (filename relative to BLOB_PREFIX, can include extension).
+            
+        Returns:
+            bytes: The raw blob data.
+            
+        Raises:
+            FileNotFoundError: If the blob is not found.
+            RuntimeError: If there's an issue fetching the blob.
+            LocalBlobRequestError: For API errors.
+        """
+        if not BlobStorageAdapter.is_available():
+            logger.error(
+                f"BlobStorageAdapter.is_available() returned False. Cannot download blob for key '{key}'. "
+                f"Import error details: {_CACHED_IMPORT_ERROR_DETAILS}"
+            )
+            raise RuntimeError(f"Blob storage is unavailable, cannot download key '{key}'. Check logs. Details: {_CACHED_IMPORT_ERROR_DETAILS}")
+
+        pathname = f"{BLOB_PREFIX}/{key}"
+        full_api_url = f"{VERCEL_BLOB_API_BASE_URL}/{pathname}"
+        download_url = None
+
+        logger.debug(f"Attempting to get metadata for raw blob download via local SDK head: {full_api_url}")
+        
+        try:
+            loop = asyncio.get_running_loop()
+            head_response_headers = await loop.run_in_executor(
+                None,
+                local_sdk_head,
+                full_api_url,
+                BLOB_READ_WRITE_TOKEN
+            )
+
+            if not isinstance(head_response_headers, dict):
+                logger.warning(f"Blob metadata (headers) not found or not a dict for key '{key}' (URL: {full_api_url}). Head response: {head_response_headers}")
+                raise FileNotFoundError(f"Blob with key '{key}' not found (invalid head response). URL: {full_api_url}")
+
+            download_url = head_response_headers.get('x-download-url')
+            if not download_url:
+                logger.warning(f"No 'x-download-url' in head response headers for {full_api_url}. Headers: {head_response_headers}")
+                raise FileNotFoundError(f"Blob with key '{key}' not found or no download URL available via head. URL: {full_api_url}")
+
+            logger.debug(f"Successfully fetched metadata for raw blob {pathname}. Download URL: {download_url}")
+
+            async with httpx.AsyncClient() as client:
+                logger.debug(f"Attempting to download raw blob content from: {download_url}")
+                response = await client.get(download_url)
+                response.raise_for_status()
+                blob_content = response.content
+                logger.info(f"Successfully downloaded raw blob with key '{key}' from {download_url}")
+                return blob_content
+
+        except LocalBlobRequestError as e:
+            error_str = str(e).lower()
+            if "404" in error_str or "not_found" in error_str or "no such file" in error_str:
+                logger.warning(f"Raw blob not found via local_sdk_head for key '{key}' (URL: {full_api_url}): {e}")
+                raise FileNotFoundError(f"Raw blob with key '{key}' not found. URL: {full_api_url}") from e
+            logger.error(f"Local SDK API request error downloading raw blob for key '{key}' (URL: {full_api_url}): {e}", exc_info=True)
+            raise
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error when downloading raw blob for key '{key}' from {download_url}: {e.response.status_code} - {e.response.text}", exc_info=True)
+            if e.response.status_code == 404:
+                 raise FileNotFoundError(f"Raw blob content not found at download URL for key '{key}'. URL: {download_url}") from e
+            raise RuntimeError(f"Failed to download raw blob for key '{key}' due to HTTP error: {e.response.status_code}") from e
+        except httpx.RequestError as e:
+            logger.error(f"Network error when downloading raw blob for key '{key}' from {download_url}: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to download raw blob for key '{key}' due to network error.") from e
+        except FileNotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error downloading raw blob for key '{key}' (URL: {full_api_url}): {e}", exc_info=True)
+            if isinstance(e, (LocalBlobRequestError, LocalBlobConfigError, LocalBlobFileError, LocalSDKError, RuntimeError)):
+                 raise
+            raise LocalSDKError(f"Unexpected error downloading raw blob for key '{key}': {e}") from e
