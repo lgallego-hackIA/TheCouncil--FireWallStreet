@@ -14,7 +14,6 @@ from src.domain.automation.models import (
     Automation, 
     AutomationStatus, 
     Endpoint,
-    DatabaseConfig,
     HttpMethod,
 )
 from src.interfaces.console.models import (

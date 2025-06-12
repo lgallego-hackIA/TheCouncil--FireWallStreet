@@ -29,8 +29,7 @@ class FinancialDataService:
     def __init__(self):
         """Inicializa el servicio de datos financieros."""
         self.alpha_vantage_client = AlphaVantageClient()
-        # Asegurar que el directorio de datos existe
-        os.makedirs(os.path.dirname(self.DATA_FILE_PATH), exist_ok=True) # MODIFIED MAKEDIRS
+        # os.makedirs removed as it's not suitable for Vercel's read-only filesystem
     
     async def get_stock_price(self, symbol: str = "GPRK") -> Dict[str, Any]:
         """
@@ -265,15 +264,22 @@ class FinancialDataService:
                 logger.info(f"Datos financieros guardados en Blob Storage: {url}")
                 return url
             else:
-                file_path = self.DATA_FILE_PATH
-                logger.info(f"Guardando datos financieros en archivo local: {file_path}")
-                try:
-                    with open(file_path, 'w') as f:
-                        json.dump(data, f, indent=2)
-                    logger.info(f"Datos guardados correctamente en {file_path}")
-                except Exception as file_error:
-                    logger.error(f"Error al guardar en archivo local: {str(file_error)}")
-                return None
+                # Fallback to local file system is not suitable for Vercel's read-only environment
+                # if BlobStorageAdapter was expected to be available.
+                if BLOB_STORAGE_AVAILABLE: # i.e. import BlobStorageAdapter succeeded
+                    logger.critical(
+                        "Vercel Blob Storage was expected but BlobStorageAdapter.is_available() returned False. "
+                        "Data cannot be saved to blob storage. Check vercel_blob import and initialization in blob_storage.py. "
+                        "NOT attempting local file save on Vercel."
+                    )
+                else: # BlobStorageAdapter itself could not be imported
+                    logger.warning(
+                        "Vercel Blob Storage (BlobStorageAdapter) import failed. "
+                        "Data cannot be saved to blob storage. NOT attempting local file save on Vercel."
+                    )
+                # To make it explicit that saving failed because blob storage isn't working as expected:
+                # raise RuntimeError("Failed to save data: Blob Storage unavailable or not functioning.")
+                return None # Indicate failure to save
         except Exception as e:
             logger.exception(f"Error al guardar datos financieros: {str(e)}")
             return None
