@@ -11,25 +11,83 @@ from datetime import timedelta
 
 # Set up logger
 logger = logging.getLogger(__name__)
+import sys
+import os
+
+VERCEL_BLOB_AVAILABLE = False
+# Initialize all names that would be imported from vercel_blob
+put, list_blobs, delete, head, copy = (None,) * 5
+BlobCommandOptions, BlobListOptions, BlobListResponse, BlobListResult, BlobPutOptions = (None,) * 5
+DelBlobResult, HeadBlobResult, ListBlobResult, PutBlobResult = (None,) * 4
+BlobNotFoundError, ListingResponse = (None,) * 2
 
 try:
-    from vercel_blob import put, get, list_blobs, del_blob, PutBlobResult
-    from vercel_blob.types import BlobNotFoundError, ListingResponse
+    logger.info(f"Attempting to import vercel_blob. Python version: {sys.version}")
+    logger.info(f"PYTHONPATH: {os.environ.get('PYTHONPATH')}")
+    logger.info(f"sys.path: {sys.path}")
+    from vercel_blob import put, get, list_blobs, del_blob, PutBlobResult, BlobNotFoundError, ListingResponse
     logger.info("Successfully imported vercel_blob SDK.")
-except ImportError:
-    logger.critical(
-        "vercel_blob SDK not found. This is required for BlobStorageAdapter. "
-        "Please install it (e.g., pip install vercel-blob)."
-    )
-    # To allow the application to load but fail on usage, define dummy functions.
-    # This helps in environments where the SDK might not be immediately available but code needs to be parsed.
-    def _dummy_blob_op(*args, **kwargs):
-        logger.error("vercel_blob SDK is not installed. Blob operation cannot proceed.")
-        raise NotImplementedError("vercel_blob SDK not installed.")
-    put = get = list_blobs = del_blob = _dummy_blob_op
-    PutBlobResult = dict # type: ignore
-    BlobNotFoundError = type('BlobNotFoundError', (Exception,), {}) # type: ignore
-    ListingResponse = dict # type: ignore
+    VERCEL_BLOB_AVAILABLE = True
+    logger.info("vercel_blob SDK imported successfully and all components assigned.")
+except ImportError as e_import:
+    logger.error(f"vercel_blob SDK import failed. Error: {e_import}", exc_info=True)
+    VERCEL_BLOB_AVAILABLE = False
+
+    async def _dummy_blob_op_import_error(*args, **kwargs):
+        logger.error("vercel_blob SDK is not installed or failed to import (ImportError). Blob operation cannot proceed.")
+        raise NotImplementedError(f"vercel_blob SDK not installed or failed to import: {e_import}")
+
+    put = _dummy_blob_op_import_error
+    list_blobs = _dummy_blob_op_import_error
+    delete = _dummy_blob_op_import_error
+    head = _dummy_blob_op_import_error
+    copy = _dummy_blob_op_import_error
+
+    class _DummyBlobTypeImportError:
+        def __init__(self, *args, **kwargs):
+            raise NotImplementedError(f"vercel_blob SDK not installed or failed to import: {e_import}")
+    
+    BlobCommandOptions = _DummyBlobTypeImportError
+    BlobListOptions = _DummyBlobTypeImportError
+    BlobListResponse = _DummyBlobTypeImportError
+    BlobListResult = _DummyBlobTypeImportError
+    BlobPutOptions = _DummyBlobTypeImportError
+    DelBlobResult = _DummyBlobTypeImportError
+    HeadBlobResult = _DummyBlobTypeImportError
+    ListBlobResult = _DummyBlobTypeImportError
+    PutBlobResult = _DummyBlobTypeImportError
+    BlobNotFoundError = _DummyBlobTypeImportError
+    ListingResponse = _DummyBlobTypeImportError
+
+except Exception as e_general:
+    logger.error(f"An unexpected error occurred during vercel_blob SDK import or setup: {e_general}", exc_info=True)
+    VERCEL_BLOB_AVAILABLE = False
+
+    async def _dummy_blob_op_general_error(*args, **kwargs):
+        logger.error(f"Unexpected error during vercel_blob setup ({type(e_general).__name__}). Blob operation cannot proceed.")
+        raise NotImplementedError(f"Unexpected error during vercel_blob setup: {e_general}")
+
+    put = _dummy_blob_op_general_error
+    list_blobs = _dummy_blob_op_general_error
+    delete = _dummy_blob_op_general_error
+    head = _dummy_blob_op_general_error
+    copy = _dummy_blob_op_general_error
+
+    class _DummyBlobTypeGeneralError:
+        def __init__(self, *args, **kwargs):
+            raise NotImplementedError(f"Unexpected error during vercel_blob setup: {e_general}")
+
+    BlobCommandOptions = _DummyBlobTypeGeneralError
+    BlobListOptions = _DummyBlobTypeGeneralError
+    BlobListResponse = _DummyBlobTypeGeneralError
+    BlobListResult = _DummyBlobTypeGeneralError
+    BlobPutOptions = _DummyBlobTypeGeneralError
+    DelBlobResult = _DummyBlobTypeGeneralError
+    HeadBlobResult = _DummyBlobTypeGeneralError
+    ListBlobResult = _DummyBlobTypeGeneralError
+    PutBlobResult = _DummyBlobTypeGeneralError
+    BlobNotFoundError = _DummyBlobTypeGeneralError
+    ListingResponse = _DummyBlobTypeGeneralError
 
 # Re-initialize logger as the previous one might have been shadowed if local_blob was imported
 logger = logging.getLogger(__name__)
