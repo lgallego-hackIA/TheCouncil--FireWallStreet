@@ -1,9 +1,13 @@
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.server_api import ServerApi
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
 
 # MongoDB connection string
-MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb+srv://lgallego:LauGalle3101@clusteria.9fn928a.mongodb.net/?retryWrites=true&w=majority&appName=ClusterIA')
+MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb+srv://lgallego:jqsfcmZL5IgfeggS@clusteria.9fn928a.mongodb.net/?retryWrites=true&w=majority&appName=ClusterIA')
 
 # Create a new client and connect to the server
 client = AsyncIOMotorClient(MONGODB_URL, server_api=ServerApi('1'))
