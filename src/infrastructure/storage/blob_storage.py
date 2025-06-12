@@ -46,8 +46,9 @@ except ImportError as e_import:
     import traceback
     traceback.print_exc(file=sys.stderr)
     sys.stderr.flush()
-    VERCEL_BLOB_AVAILABLE = False # Explicitly set before re-raising
-    raise e_import
+    VERCEL_BLOB_AVAILABLE = False # Ensure this is set
+    # DO NOT re-raise e_import here. Allow module to load with dummies.
+    # The dummy assignments for ImportError case will follow.
 
     async def _dummy_blob_op_import_error(*args, **kwargs):
         logger.error("vercel_blob SDK is not installed or failed to import (ImportError). Blob operation cannot proceed.")
